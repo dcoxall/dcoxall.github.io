@@ -1,0 +1,63 @@
+<?xml version="1.0" encoding="utf-8" standalone="yes" ?>
+<rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom">
+  <channel>
+    <title>Tools on Darren Coxall</title>
+    <link>http://www.darrencoxall.com/tools/</link>
+    <description>Recent content in Tools on Darren Coxall</description>
+    <generator>Hugo -- gohugo.io</generator>
+    
+    
+    
+    <lastBuildDate>Sun, 03 Mar 2013 15:00:00 UTC</lastBuildDate>
+    <atom:link href="http://www.darrencoxall.com/tools/index.xml" rel="self" type="application/rss+xml" />
+    
+    <item>
+      <title>Boxen and My Experience</title>
+      <link>http://www.darrencoxall.com/tools/boxen-and-my-experience/</link>
+      <pubDate>Sun, 03 Mar 2013 15:00:00 UTC</pubDate>
+      
+      <guid>http://www.darrencoxall.com/tools/boxen-and-my-experience/</guid>
+      <description>
+
+&lt;p&gt;&lt;a href=&#34;https://github.com/boxen&#34; title=&#34;Boxen&#34;&gt;Boxen&lt;/a&gt; is a new tool that allows new Macs to be quickly set-up using the same technologies that sysops have become accustomed to, Puppet. Now Puppet has it&amp;rsquo;s own language to define what actions are executed on target machine. It was originally developed to help prepare &lt;em&gt;cloud&lt;/em&gt; servers for easier management/deployment.&lt;/p&gt;
+
+&lt;p&gt;The popularity of Puppet has increased and it has become a widely used tool and so the team over at &lt;a href=&#34;https://github.com/&#34; title=&#34;GitHub&#34;&gt;github.com&lt;/a&gt; decided to build a system that utilises it to perform similar setup tasks on Macs.&lt;/p&gt;
+
+&lt;p&gt;I have only spent a couple of days using Boxen but it has given me some fairly strong opinion. Before I dive in with my thoughts I must own up to &lt;em&gt;(still)&lt;/em&gt; not completely understanding the Puppet language and this is likely a large cause of many of my issues.&lt;/p&gt;
+
+&lt;h2 id=&#34;developing-for-boxen:d409599d847cdf6f6abf21fe7800a8cc&#34;&gt;Developing for Boxen&lt;/h2&gt;
+
+&lt;p&gt;Getting started with Boxen is quick and easy. Following the provided instructions works perfectly. The pre-made puppet classes and libraries developed for Boxen all seem to work brilliantly. I had only minor issues with 1 of the repos but this was easy to get around.&lt;/p&gt;
+
+&lt;p&gt;The difficulty comes when creating your own Puppet modules. I had trouble figuring out how to test that the documents worked as expected. Running boxen, having it install multiple pieces of software and tools only for it to fail near the end. This wouldn&amp;rsquo;t be so bad but a couple of pre-flight checks built into Boxen meant I would have to uninstall the software to retry. This became a pain. Many of you may read this and think:&lt;/p&gt;
+
+&lt;blockquote&gt;
+&lt;p&gt;Why not just remove the checks? It&amp;rsquo;s all open source after all.&lt;/p&gt;
+&lt;/blockquote&gt;
+
+&lt;p&gt;It&amp;rsquo;s easy enough to do. A project search shows where the checks are performed but this requires direct modification of the Boxen tool as opposed to the configuration. It becomes less configuration and more alteration of the tool itself which I was a little &lt;em&gt;un-comfortable&lt;/em&gt; with.&lt;/p&gt;
+
+&lt;p&gt;There are gems that come with Boxen to help provide tests but I couldn&amp;rsquo;t get them to work as expected and with little to no documentation on testing boxen configurations I had to abandon a proper set of tests for just manually running the tool.&lt;/p&gt;
+
+&lt;h2 id=&#34;existing-puppet-modules:d409599d847cdf6f6abf21fe7800a8cc&#34;&gt;Existing Puppet Modules&lt;/h2&gt;
+
+&lt;p&gt;As previously stated there are many existing puppet modules developed for use with Boxen. They work well and are very easy to use but none are very configurable &lt;em&gt;(with my experience)&lt;/em&gt; and their documentation is all very poor.&lt;/p&gt;
+
+&lt;p&gt;Many of the modules such as &lt;a href=&#34;https://github.com/boxen/puppet-mongodb&#34; title=&#34;Puppet MongoDB&#34;&gt;MongoDB&lt;/a&gt; and &lt;a href=&#34;https://github.com/boxen/puppet-redis&#34; title=&#34;Puppet Redis&#34;&gt;Redis&lt;/a&gt; are set-up to install on non-standard ports which is a little confusing initially. I understand why they have done so but to change these ports you need to fork or create your own module to make just a single change of port.&lt;/p&gt;
+
+&lt;p&gt;The architecture of Boxen lends itself to having multiple repos for each of your modules and using &lt;code&gt;include&lt;/code&gt; to pull them into your Boxen script. This works well when you have a lot of repositories available but when it is aimed at companies that will often have unique configuration requirements then this can lead to an excess of fairly simple repos being used up. &lt;em&gt;This may well be addressed with a better understanding of the Puppet language however.&lt;/em&gt;&lt;/p&gt;
+
+&lt;h3 id=&#34;final-thoughts:d409599d847cdf6f6abf21fe7800a8cc&#34;&gt;Final Thoughts&lt;/h3&gt;
+
+&lt;p&gt;My personal experience only highlights my lack of Puppet knowledge but even after my initial difficulties I was able to get all the required tools and software installed through Boxen. It dramatically reduces the set-up time for new development machines allowing new members to get started considerably faster than before.&lt;/p&gt;
+
+&lt;p&gt;I am now far more interested in learning Puppet to better make use of Boxen as I think it has massive potential. It would be an astonishing tool if/once it can handle a variety of Operating Systems as opposed to only Macs.&lt;/p&gt;
+
+&lt;p&gt;Even with my somewhat limited understanding, I was still left with a positive opinion. I think this could eventually be the go-to tool for systems teams in organisations and even now it makes the task of installing development dependencies much easier.&lt;/p&gt;
+
+&lt;p&gt;I suggest you give it a try.&lt;/p&gt;
+</description>
+    </item>
+    
+  </channel>
+</rss>

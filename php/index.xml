@@ -1,0 +1,65 @@
+<?xml version="1.0" encoding="utf-8" standalone="yes" ?>
+<rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom">
+  <channel>
+    <title>Phps on Darren Coxall</title>
+    <link>http://www.darrencoxall.com/php/</link>
+    <description>Recent content in Phps on Darren Coxall</description>
+    <generator>Hugo -- gohugo.io</generator>
+    
+    
+    
+    <lastBuildDate>Thu, 17 Jan 2013 11:47:00 UTC</lastBuildDate>
+    <atom:link href="http://www.darrencoxall.com/php/index.xml" rel="self" type="application/rss+xml" />
+    
+    <item>
+      <title>Laravel, The Good and The Awesome</title>
+      <link>http://www.darrencoxall.com/php/laravel-the-good-and-the-awesome/</link>
+      <pubDate>Thu, 17 Jan 2013 11:47:00 UTC</pubDate>
+      
+      <guid>http://www.darrencoxall.com/php/laravel-the-good-and-the-awesome/</guid>
+      <description>
+
+&lt;p&gt;PHP frameworks are all over the web currently with new ones cropping up more and more. We have the golden oldies with &lt;a href=&#34;http://framework.zend.com/&#34; title=&#34;Zend Framework&#34;&gt;Zend&lt;/a&gt;, &lt;a href=&#34;http://ellislab.com/codeigniter&#34; title=&#34;CodeIgniter&#34;&gt;CodeIgniter&lt;/a&gt; and &lt;a href=&#34;http://cakephp.org/&#34; title=&#34;CakePHP&#34;&gt;CakePHP&lt;/a&gt; but now we are also faced with the new kids on the block with &lt;a href=&#34;http://symfony.com/&#34; title=&#34;Symonfy&#34;&gt;Symfony&lt;/a&gt; and todays topic - &lt;a href=&#34;http://laravel.com/&#34; title=&#34;Laravel&#34;&gt;Laravel&lt;/a&gt;.&lt;/p&gt;
+
+&lt;p&gt;This is a bit of a strange first post for myself as a Ruby (and Rails) developer but &lt;em&gt;development is development is development&lt;/em&gt; and Laravel is a hot topic in PHP currently.&lt;/p&gt;
+
+&lt;p&gt;When I tried Laravel it was version 3.2.12 and there is lots in the pipeline so things may change.&lt;/p&gt;
+
+&lt;h2 id=&#34;so-what-s-special-about-it:9f0c9087672472401f4c146393b7e884&#34;&gt;So what&amp;rsquo;s special about it?&lt;/h2&gt;
+
+&lt;p&gt;I enjoy flexibility and so initially I had always quite liked the &lt;em&gt;separation of concerns&lt;/em&gt; found in the Zend library. Being able to pull parts of an app out and plug it in elsewhere is awesome. I have dabbled with other frameworks but this is often where I feel many fall down.&lt;/p&gt;
+
+&lt;p&gt;Being able to switch core pieces of an application is brilliant and having that sort of access to a well-written codebase can help teach you a lot about some of the smarter decisions made by the developers.&lt;/p&gt;
+
+&lt;p&gt;Laravel is well-written and very flexible. Nothing is done using magic and fairy dust just good design decisions and an aim to make the framework a solid collection of testable classes.&lt;/p&gt;
+
+&lt;p&gt;Unlike Zend I find that the way the pieces of the framework fit together is much more intuitive.&lt;/p&gt;
+
+&lt;h3 id=&#34;awesome-features-for-a-php-framework:9f0c9087672472401f4c146393b7e884&#34;&gt;Awesome features for a PHP framework&lt;/h3&gt;
+
+&lt;p&gt;Laravel was built to be cutting-edge. It uses the latest greatest stuff in PHP such as closures and namespaces. Doing away with older PHP versions is a perfect decision for new frameworks. The language is changing rapidly now making some good decisions (finally).&lt;/p&gt;
+
+&lt;p&gt;They have done away with the typical /controller/action/param routing style which I couldn&amp;rsquo;t recommend more. It&amp;rsquo;s a little more verbose because of this but it is an extra layer of control. I have always disagreed with the URL having to be a direct interface to your classes.&lt;/p&gt;
+
+&lt;p&gt;The framework comes with a built in templating system called blade which is easy to use. I question if layouts could be done in a more traditional way but hey it works.&lt;/p&gt;
+
+&lt;p&gt;Another feature I adore is the &lt;em&gt;Object Relational Mapper&lt;/em&gt;. It works well and many will tell you that an ORM is bloat and can slow down your code. I disagree. Yes the queries may be less optimised and may occur more than hand crafted SQL but the awesome-sauce is found in the development time saved when using one.&lt;/p&gt;
+
+&lt;h3 id=&#34;the-not-so-good:9f0c9087672472401f4c146393b7e884&#34;&gt;The not so good&lt;/h3&gt;
+
+&lt;p&gt;&lt;em&gt;Statics&lt;/em&gt;. A constantly &lt;a href=&#34;http://www.reddit.com/r/PHP/comments/10hank/avoid_static_methods_at_all_costs_testability/&#34; title=&#34;Debate on Reddit&#34;&gt;debated&lt;/a&gt; addition to PHP. I don&amp;rsquo;t think anyone disagrees with its inclusion but the use of them is often a discussion point amongst the modern PHP dev.&lt;/p&gt;
+
+&lt;p&gt;I don&amp;rsquo;t like the over use of static methods. Even when it comes to helpers I believe there is often an argument that they can be instances that are made available to the view.&lt;/p&gt;
+
+&lt;p&gt;Many of the examples also place code examples directly into the routes. &lt;strong&gt;Please don&amp;rsquo;t do this&lt;/strong&gt;. Controllers were built to handle this. It may be quicker to demonstrate the use of a class or two but it is not a decision that helps build a maintainable application.&lt;/p&gt;
+
+&lt;p&gt;&lt;em&gt;&lt;strong&gt;EDIT:&lt;/strong&gt; Since writing this I have been made aware that &lt;strong&gt;Laravel 4&lt;/strong&gt; leverages a &lt;a href=&#34;http://vimeo.com/53029232&#34; title=&#34;Laravel 4 IoC Container&#34;&gt;brilliant IoC Container&lt;/a&gt; which allows you to pass arguments to your application components of custom interfaces. You simply implement the interfaces and then tell your app what Class to use when that implementation is required. Now this is brilliant for creating testable, decoupled code.&lt;/em&gt;&lt;/p&gt;
+
+&lt;h3 id=&#34;why-use-it:9f0c9087672472401f4c146393b7e884&#34;&gt;Why use it?&lt;/h3&gt;
+
+&lt;p&gt;To be frank, Laravel is a strong choice for those looking for a PHP web framework. Its use of the modern language and flexibility make it one of the most customisable. Its design choices encourage re-use and a complete object orientated approach to PHP.&lt;/p&gt;
+</description>
+    </item>
+    
+  </channel>
+</rss>

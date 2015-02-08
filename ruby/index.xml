@@ -1,0 +1,369 @@
+<?xml version="1.0" encoding="utf-8" standalone="yes" ?>
+<rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom">
+  <channel>
+    <title>Rubies on Darren Coxall</title>
+    <link>http://www.darrencoxall.com/ruby/</link>
+    <description>Recent content in Rubies on Darren Coxall</description>
+    <generator>Hugo -- gohugo.io</generator>
+    
+    
+    
+    <lastBuildDate>Thu, 01 Jan 2015 10:00:00 UTC</lastBuildDate>
+    <atom:link href="http://www.darrencoxall.com/ruby/index.xml" rel="self" type="application/rss+xml" />
+    
+    <item>
+      <title>Refactoring Walkthrough</title>
+      <link>http://www.darrencoxall.com/ruby/refactoring-walkthrough/</link>
+      <pubDate>Thu, 01 Jan 2015 10:00:00 UTC</pubDate>
+      
+      <guid>http://www.darrencoxall.com/ruby/refactoring-walkthrough/</guid>
+      <description>&lt;p&gt;Refactoring is the process of restructuring, re-architecting and modifying
+existing code without affecting the output of the code. The aim is to reduce
+complexity simultaneously improving the ability to modify the code at a later
+date. I want to walk you through my own refactoring process with a real world
+example.&lt;/p&gt;
+
+&lt;p&gt;We will be refactoring &lt;a href=&#34;https://github.com/shtirlic/sinatra-jsonp&#34;&gt;shtirlic/sinatra-jsonp&lt;/a&gt;. This is a small
+sinatra extension that adds support for older browsers when returning json as
+it provides callback function support. I have selected this as I have used it in
+a project and I know that the main bulk of the functionality is implemented in
+a rather complex method making it a prime candidate for refactoring.&lt;/p&gt;
+
+&lt;p&gt;So to begin with I am going to fork the repository so my starting point is
+&lt;a href=&#34;https://github.com/dcoxall/sinatra-jsonp/tree/7436fd1fa38d6654560fa3e4af52c734dd818073&#34;&gt;&lt;code&gt;7436fd1fa3&lt;/code&gt;&lt;/a&gt;. If I now clone this locally I can start setting up my
+baselines and checking the tests.&lt;/p&gt;
+
+&lt;p&gt;&lt;em&gt;Tests are perhaps the single most important thing to have in place when
+refactoring. Without them it is extremely difficult to assert that the code is
+producing the same results both before and after the refactoring.&lt;/em&gt;&lt;/p&gt;
+
+&lt;pre&gt;&lt;code&gt;$ git clone git@github.com:dcoxall/sinatra-jsonp.git
+$ cd sinatra-jsonp
+$ bundle install
+$ bundle exec rake
+&lt;/code&gt;&lt;/pre&gt;
+
+&lt;p&gt;You will see that I installed any dependencies and then ran the default rake
+task. In most ruby programs this is the standard way of running the complete
+test suite. In this case it was right and all the tests passed but there were
+some deprecations.&lt;/p&gt;
+
+&lt;blockquote&gt;
+&lt;p&gt;stdlib is deprecated. Use :test_unit or :minitest instead&lt;/p&gt;
+&lt;/blockquote&gt;
+
+&lt;p&gt;Now this is a good place to start. If I can fix any issues like this now I will
+have a nicer environment to work with later so at this point I will create a
+branch.&lt;/p&gt;
+
+&lt;pre&gt;&lt;code&gt;$ git checkout -b refactor
+&lt;/code&gt;&lt;/pre&gt;
+
+&lt;p&gt;With a branch created I can start making my changes. The offending line causing
+the deprecation warning is in &lt;code&gt;spec/spec_helper.rb&lt;/code&gt; so my first action was to
+remove it and see what effect it had on the tests by running them again.&lt;/p&gt;
+
+&lt;p&gt;Low-and-behold everything passed but without any warnings. Awesome. So I can
+commit this change.&lt;/p&gt;
+
+&lt;pre&gt;&lt;code&gt;$ git add spec/spec_helper.rb
+$ git ci -m &amp;quot;Fix deprecated use of stdlib&amp;quot;
+&lt;/code&gt;&lt;/pre&gt;
+
+&lt;p&gt;Now I want to introduce a tool I like to use called &lt;a href=&#34;https://github.com/bbatsov/rubocop&#34;&gt;rubocop&lt;/a&gt; which
+can analyse ruby code to check that it follows particular conventions but more
+importantly in this case it also includes metrics that report on estimated
+complexity and an ABC rating (Assignments, branching and conditions) where a
+higher number often indicates complex or difficult to follow code. This will
+provide me a baseline and I can work on reducing these metrics providing me a
+tangible target.&lt;/p&gt;
+
+&lt;pre&gt;&lt;code&gt;$ gem install rubocop
+$ rubocop -f s --only \
+&amp;gt; Metrics/AbcSize,Metrics/MethodLength,Metrics/PerceivedComplexity
+&lt;/code&gt;&lt;/pre&gt;
+
+&lt;p&gt;In the above command I limit rubocop to look only for ABC rating, method length
+and the perceived complexity. These will be the metrics I want to improve. The
+result is the following:&lt;/p&gt;
+
+&lt;pre&gt;&lt;code&gt;== lib/sinatra/jsonp.rb ==
+C:  6:  5: Assignment Branch Condition size for jsonp is too high. [19.34/15]
+C:  6:  5: Method has too many lines. [19/10]
+C:  6:  5: Perceived complexity for jsonp is too high. [8/7]
+&lt;/code&gt;&lt;/pre&gt;
+
+&lt;p&gt;Now I have a starting point and passing tests. It&amp;rsquo;s time to look at the code.
+All the reported issues are in &lt;a href=&#34;https://github.com/dcoxall/sinatra-jsonp/blob/7436fd1fa38d6654560fa3e4af52c734dd818073/lib/sinatra/jsonp.rb&#34;&gt;&lt;code&gt;lib/sinatra/jsonp.rb&lt;/code&gt;&lt;/a&gt; which is where all
+the main logic is kept.&lt;/p&gt;
+
+&lt;p&gt;My first instinct is to go through the method and document what it is actualy
+doing. I find it much easier to re-structure the code once I understand what
+functions it is serving. It is then a case of moving pieces to their own
+methods.&lt;/p&gt;
+
+&lt;pre&gt;&lt;code&gt;def jsonp(*args)
+  # requires 1 or more arguments
+  if args.size &amp;gt; 0
+    # The first argument is the object to serialize
+    data = MultiJson.dump(
+      args[0],
+      :pretty =&amp;gt; settings.respond_to?(:json_pretty) &amp;amp;&amp;amp; settings.json_pretty
+    )
+    # If we have another argument it is the callback function name
+    if args.size &amp;gt; 1
+      callback = args[1].to_s
+    else
+      # If not then determine the callback based on the following parameters
+      [&#39;callback&#39;,&#39;jscallback&#39;,&#39;jsonp&#39;,&#39;jsoncallback&#39;].each do |x|
+        callback = params.delete(x) unless callback
+      end
+    end
+    # If we have a callback perform some basic sanitization and set the
+    # response content type and the eventual response body
+    if callback
+      callback.tr!(&#39;^a-zA-Z0-9_$\.&#39;, &#39;&#39;)
+      content_type :js
+      response = &amp;quot;#{callback}(#{data})&amp;quot;
+    else
+      # If no callback then set the response content type to json and return
+      # the serialized data
+      content_type :json
+      response = data
+    end
+    response
+  end
+end
+&lt;/code&gt;&lt;/pre&gt;
+
+&lt;p&gt;With this view I am going to work top-down and so first is to implement a guard
+condition by returning early if we have in-sufficient arguments. I then decide
+that I can make the &lt;code&gt;pretty&lt;/code&gt; flag into a different method.&lt;/p&gt;
+
+&lt;pre&gt;&lt;code&gt;# requires 1 or more arguments
+return if args.size &amp;lt; 1
+
+# The first argument is the object to serialize
+data = MultiJson.dump(args[0], :pretty =&amp;gt; display_pretty_json?)
+
+# ...
+
+private
+
+def display_pretty_json?
+  !!(settings.respond_to?(:json_pretty) &amp;amp;&amp;amp; settings.json_pretty)
+end
+&lt;/code&gt;&lt;/pre&gt;
+
+&lt;p&gt;Now running the tests and rubocop again reveal that everything is still passing
+but I have already corrected the perceived complexity of the method as well as
+improved the ABC score (by 3.03).&lt;/p&gt;
+
+&lt;pre&gt;&lt;code&gt;== lib/sinatra/jsonp.rb ==
+C:  6:  5: Assignment Branch Condition size for jsonp is too high. [16.31/15]
+C:  6:  5: Method has too many lines. [18/10]
+&lt;/code&gt;&lt;/pre&gt;
+
+&lt;p&gt;Time to commit these changes and then tackle the callback calculation.&lt;/p&gt;
+
+&lt;pre&gt;&lt;code&gt;$ git add lib/sinatra/jsonp.rb
+$ git commit -m &amp;quot;Introduce guard condition and extract setting checks&amp;quot;
+&lt;/code&gt;&lt;/pre&gt;
+
+&lt;p&gt;I move the logic for determining the callback name into a new method and I also
+move the list of parameter keys to check into a constant. This leaves us with
+the following&amp;hellip;&lt;/p&gt;
+
+&lt;pre&gt;&lt;code&gt;CALLBACK_PARAMS = %w( callback jscallback jsonp jsoncallback ).freeze
+
+def jsonp(*args)
+  return if args.size &amp;lt; 1
+
+  data = MultiJson.dump(args[0], :pretty =&amp;gt; display_pretty_json?)
+  callback = extract_callback_name(args[1])
+
+  # If we have a callback perform some basic sanitization and set the
+  # response content type and the eventual response body
+  if callback
+    callback.tr!(&#39;^a-zA-Z0-9_$\.&#39;, &#39;&#39;)
+    content_type :js
+    response = &amp;quot;#{callback}(#{data})&amp;quot;
+  else
+    # If no callback then set the response content type to json and return
+    # the serialized data
+    content_type :json
+    response = data
+  end
+  response
+end
+alias JSONP jsonp
+
+private
+
+def display_pretty_json?
+  !!(settings.respond_to?(:json_pretty) &amp;amp;&amp;amp; settings.json_pretty)
+end
+
+def extract_callback_name(name = nil)
+  if name.nil?
+    callback = nil
+    CALLBACK_PARAMS.each do |key|
+      callback = params.delete(key) unless callback
+    end
+    callback ? callback.to_s : nil
+  else
+    name.to_s
+  end
+end
+&lt;/code&gt;&lt;/pre&gt;
+
+&lt;p&gt;Again running the tests and rubocop tell me that everything is still working
+and I have now also corrected the ABC score to an acceptable level. The only
+metric that rubocop is complaining about now is the method length. Once again,
+it&amp;rsquo;s time to commit our changes and move onto finalizing the response.&lt;/p&gt;
+
+&lt;pre&gt;&lt;code&gt;$ git add lib/sinatra/jsonp.rb
+$ git commit -m &amp;quot;Callback name extraction moved to new method&amp;quot;
+&lt;/code&gt;&lt;/pre&gt;
+
+&lt;p&gt;Now for this next refactor I don&amp;rsquo;t want the method to have any side-effects and
+so I don&amp;rsquo;t want the new method to call &lt;code&gt;content_type&lt;/code&gt; explicitly but instead
+return both the response body and the correct content type which the main method
+can use.&lt;/p&gt;
+
+&lt;p&gt;The result of this is shown below&lt;/p&gt;
+
+&lt;pre&gt;&lt;code&gt;CALLBACK_PARAMS = %w( callback jscallback jsonp jsoncallback ).freeze
+
+def jsonp(*args)
+  return if args.size &amp;lt; 1
+  data = MultiJson.dump(args[0], :pretty =&amp;gt; display_pretty_json?)
+  callback = extract_callback_name(args[1])
+  type, response = determine_response(data, callback)
+  content_type(type)
+  response
+end
+alias JSONP jsonp
+
+private
+
+def determine_response(data, callback = nil)
+  return [:json, data] if callback.nil?
+  callback.tr!(&#39;^a-zA-Z0-9_$\.&#39;, &#39;&#39;)
+  [:js, format(&amp;quot;%s(%s)&amp;quot;, callback, data)]
+end
+
+def display_pretty_json?
+  !!(settings.respond_to?(:json_pretty) &amp;amp;&amp;amp; settings.json_pretty)
+end
+
+def extract_callback_name(name = nil)
+  if name.nil?
+    callback = nil
+    CALLBACK_PARAMS.each do |key|
+      callback = params.delete(key) unless callback
+    end
+    callback ? callback.to_s : nil
+  else
+    name.to_s
+  end
+end
+&lt;/code&gt;&lt;/pre&gt;
+
+&lt;p&gt;Running the tests and rubocop now reveal all tests continue to pass and rubocop
+has nothing to complain about! I can commit this and create a pull request.&lt;/p&gt;
+
+&lt;p&gt;I&amp;rsquo;ve demonstrated how I like to refactor with the aim of making the code easier
+to work with. What once was a large single method is now several smaller more
+succinct methods. This also provides an additional benefit in that the method
+names now also document the behaviour of the code making it easier for others to
+read and understand.&lt;/p&gt;
+
+&lt;p&gt;Thank you for reading. You can see the &lt;a href=&#34;https://github.com/shtirlic/sinatra-jsonp/pull/6&#34;&gt;final pull request here&lt;/a&gt;. Now go out
+and improve some code!&lt;/p&gt;
+</description>
+    </item>
+    
+    <item>
+      <title>Learning Ruby: Everything is an Object</title>
+      <link>http://www.darrencoxall.com/ruby/everything-is-an-object/</link>
+      <pubDate>Wed, 24 Jul 2013 20:17:00 UTC</pubDate>
+      
+      <guid>http://www.darrencoxall.com/ruby/everything-is-an-object/</guid>
+      <description>
+
+&lt;p&gt;The first thing to learn about Ruby is that &lt;em&gt;everything is an object&lt;/em&gt;. The best way to make use of the languages features are to develop in an Object-Orientated way. This being the first article in many about learning Ruby, I will walk you through &lt;em&gt;classes&lt;/em&gt; and &lt;em&gt;objects&lt;/em&gt;. Ready?&lt;/p&gt;
+
+&lt;p&gt;If you would like to follow along make sure you install Ruby and then create a file called &lt;code&gt;learn_ruby_01.rb&lt;/code&gt;.&lt;/p&gt;
+
+&lt;h2 id=&#34;what-is-a-class:39aabd223f74e19e15ccec60af1d2d47&#34;&gt;What is a Class?&lt;/h2&gt;
+
+&lt;p&gt;Classes in Ruby are basically containers. They store methods that can be used and provide systems in which to store data. The main use of a class is to define something that can be created multiple times, each time with it&amp;rsquo;s own unique data.&lt;/p&gt;
+
+&lt;p&gt;Classes can be defined like so:&lt;/p&gt;
+
+&lt;pre&gt;&lt;code&gt;class MyFirstClass
+  def hello
+    puts &amp;quot;Hello, World!&amp;quot;
+  end
+end
+&lt;/code&gt;&lt;/pre&gt;
+
+&lt;p&gt;The first line declares the class name (&amp;lsquo;MyFirstClass&amp;rsquo; in this example). Everything between this and &lt;code&gt;end&lt;/code&gt; is the class definition. The definition in my example has a &lt;code&gt;hello&lt;/code&gt; method indicated by the &lt;code&gt;def&lt;/code&gt; (I believe it stands for define). Everything between the define and the next &lt;code&gt;end&lt;/code&gt; is contained in the &lt;code&gt;hello&lt;/code&gt; method.&lt;/p&gt;
+
+&lt;p&gt;On line 3 we call a method called &lt;code&gt;puts&lt;/code&gt; with the text &amp;ldquo;Hello, World!&amp;rdquo;. This line will output the text to the terminal/console window.&lt;/p&gt;
+
+&lt;p&gt;Putting it all together we can see that we have a class called MyFirstClass which has 1 method - &lt;code&gt;hello&lt;/code&gt; - which will put &amp;ldquo;Hello, World!&amp;rdquo; in the terminal when called.&lt;/p&gt;
+
+&lt;h2 id=&#34;what-is-an-object:39aabd223f74e19e15ccec60af1d2d47&#34;&gt;What is an Object?&lt;/h2&gt;
+
+&lt;p&gt;Continuing from our previous example we now create an &lt;em&gt;object&lt;/em&gt; of &lt;code&gt;MyFirstExample&lt;/code&gt;. To do that add the following to the bottom of our example file.&lt;/p&gt;
+
+&lt;pre&gt;&lt;code&gt;class MyFirstClass
+  def hello
+    puts &amp;quot;Hello, World!&amp;quot;
+  end
+end
+
+# This is a comment. Below we create an object.
+object = MyFirstObject.new
+object.hello
+&lt;/code&gt;&lt;/pre&gt;
+
+&lt;p&gt;If you now run our file with &lt;code&gt;ruby /path/to/example.rb&lt;/code&gt; you will see that it outputs &amp;ldquo;Hello, World!&amp;rdquo;.&lt;/p&gt;
+
+&lt;p&gt;We&amp;rsquo;ve created our own class but Ruby provides many to begin with. In-fact we have used 3 in our example:&lt;/p&gt;
+
+&lt;ol&gt;
+&lt;li&gt;&lt;code&gt;puts&lt;/code&gt; is a method on a class called &lt;code&gt;Object&lt;/code&gt; which is what amost everything in Ruby branches from.&lt;/li&gt;
+&lt;li&gt;We pass text to the &lt;code&gt;puts&lt;/code&gt; method but the text itself is an object of a class called &lt;code&gt;String&lt;/code&gt;. Strings are just a code representation of text. Another way of showing this is &lt;code&gt;String.new(&amp;quot;Hello, World!&amp;quot;)&lt;/code&gt;.&lt;/li&gt;
+&lt;li&gt;Obviously the third is our own class - &lt;code&gt;MyFirstClass&lt;/code&gt;.&lt;/li&gt;
+&lt;/ol&gt;
+
+&lt;p&gt;Ruby has a great many classes to help us start. Below is an example of a small number available to us:&lt;/p&gt;
+
+&lt;pre&gt;&lt;code&gt;# Numeric represents numbers
+# It has many subclasses such as:
+234.class # =&amp;gt; Fixnum - integers
+234.56.class # =&amp;gt; Float - decimals
+
+# Array represents lists of objects
+[1,2,3].class # =&amp;gt; Array
+[&amp;quot;sentence one&amp;quot;, &amp;quot;sentence two&amp;quot;].class # =&amp;gt; Array
+
+# Hash represents a list of key value pairs
+{ :key_name =&amp;gt; &amp;quot;key value&amp;quot; }.class # =&amp;gt; Hash
+{ &amp;quot;text key&amp;quot; =&amp;gt; 1234  }.class # =&amp;gt; Hash
+
+# Even the current script is a class
+self.class # =&amp;gt; Object
+&lt;/code&gt;&lt;/pre&gt;
+
+&lt;p&gt;Next time we will look at ways we can add to classes both our own and the core classes. For now though let&amp;rsquo;s recap. We have learnt that we can use classes to group and represent logic and code. We can create instances of classes - known as objects - which can call the defined methods. Finally we have also learnt that Ruby has many classes ready for us to use right away.&lt;/p&gt;
+
+&lt;p&gt;Thanks for reading!&lt;/p&gt;
+</description>
+    </item>
+    
+  </channel>
+</rss>

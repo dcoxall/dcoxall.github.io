@@ -1,0 +1,102 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1">
+    <title>Laravel, The Good and The Awesome &middot; Darren Coxall</title>
+    <base href="http://www.darrencoxall.com">
+    <link href="" rel="alternate" type="application/rss+xml" title="Darren Coxall">
+    <link href="/css/coxall.css" rel="stylesheet" type="text/css">
+    <link rel="stylesheet" href="//cdnjs.cloudflare.com/ajax/libs/highlight.js/8.4/styles/tomorrow-night-eighties.min.css">
+  </head>
+  <body lang="en">
+
+    
+    <header>
+      <a href="http://www.darrencoxall.com">
+        Home
+      </a>
+    </header>
+    
+
+
+    <main class="container">
+
+      <section class="row">
+        <article class="col-md-8 col-md-offset-2">
+          <h1>Laravel, The Good And The Awesome</h1>
+          <div class="meta text-muted">
+            <p>
+              <time datetime="2013-01-17T11:47:00Z">
+                Thu, Jan 17, 2013
+              </time>
+            </p>
+          </div>
+          
+
+<p>PHP frameworks are all over the web currently with new ones cropping up more and more. We have the golden oldies with <a href="http://framework.zend.com/" title="Zend Framework">Zend</a>, <a href="http://ellislab.com/codeigniter" title="CodeIgniter">CodeIgniter</a> and <a href="http://cakephp.org/" title="CakePHP">CakePHP</a> but now we are also faced with the new kids on the block with <a href="http://symfony.com/" title="Symonfy">Symfony</a> and todays topic - <a href="http://laravel.com/" title="Laravel">Laravel</a>.</p>
+
+<p>This is a bit of a strange first post for myself as a Ruby (and Rails) developer but <em>development is development is development</em> and Laravel is a hot topic in PHP currently.</p>
+
+<p>When I tried Laravel it was version 3.2.12 and there is lots in the pipeline so things may change.</p>
+
+<h2 id="so-what-s-special-about-it:9f0c9087672472401f4c146393b7e884">So what&rsquo;s special about it?</h2>
+
+<p>I enjoy flexibility and so initially I had always quite liked the <em>separation of concerns</em> found in the Zend library. Being able to pull parts of an app out and plug it in elsewhere is awesome. I have dabbled with other frameworks but this is often where I feel many fall down.</p>
+
+<p>Being able to switch core pieces of an application is brilliant and having that sort of access to a well-written codebase can help teach you a lot about some of the smarter decisions made by the developers.</p>
+
+<p>Laravel is well-written and very flexible. Nothing is done using magic and fairy dust just good design decisions and an aim to make the framework a solid collection of testable classes.</p>
+
+<p>Unlike Zend I find that the way the pieces of the framework fit together is much more intuitive.</p>
+
+<h3 id="awesome-features-for-a-php-framework:9f0c9087672472401f4c146393b7e884">Awesome features for a PHP framework</h3>
+
+<p>Laravel was built to be cutting-edge. It uses the latest greatest stuff in PHP such as closures and namespaces. Doing away with older PHP versions is a perfect decision for new frameworks. The language is changing rapidly now making some good decisions (finally).</p>
+
+<p>They have done away with the typical /controller/action/param routing style which I couldn&rsquo;t recommend more. It&rsquo;s a little more verbose because of this but it is an extra layer of control. I have always disagreed with the URL having to be a direct interface to your classes.</p>
+
+<p>The framework comes with a built in templating system called blade which is easy to use. I question if layouts could be done in a more traditional way but hey it works.</p>
+
+<p>Another feature I adore is the <em>Object Relational Mapper</em>. It works well and many will tell you that an ORM is bloat and can slow down your code. I disagree. Yes the queries may be less optimised and may occur more than hand crafted SQL but the awesome-sauce is found in the development time saved when using one.</p>
+
+<h3 id="the-not-so-good:9f0c9087672472401f4c146393b7e884">The not so good</h3>
+
+<p><em>Statics</em>. A constantly <a href="http://www.reddit.com/r/PHP/comments/10hank/avoid_static_methods_at_all_costs_testability/" title="Debate on Reddit">debated</a> addition to PHP. I don&rsquo;t think anyone disagrees with its inclusion but the use of them is often a discussion point amongst the modern PHP dev.</p>
+
+<p>I don&rsquo;t like the over use of static methods. Even when it comes to helpers I believe there is often an argument that they can be instances that are made available to the view.</p>
+
+<p>Many of the examples also place code examples directly into the routes. <strong>Please don&rsquo;t do this</strong>. Controllers were built to handle this. It may be quicker to demonstrate the use of a class or two but it is not a decision that helps build a maintainable application.</p>
+
+<p><em><strong>EDIT:</strong> Since writing this I have been made aware that <strong>Laravel 4</strong> leverages a <a href="http://vimeo.com/53029232" title="Laravel 4 IoC Container">brilliant IoC Container</a> which allows you to pass arguments to your application components of custom interfaces. You simply implement the interfaces and then tell your app what Class to use when that implementation is required. Now this is brilliant for creating testable, decoupled code.</em></p>
+
+<h3 id="why-use-it:9f0c9087672472401f4c146393b7e884">Why use it?</h3>
+
+<p>To be frank, Laravel is a strong choice for those looking for a PHP web framework. Its use of the modern language and flexibility make it one of the most customisable. Its design choices encourage re-use and a complete object orientated approach to PHP.</p>
+
+        </article>
+      </section>
+
+      <footer class="row h-card">
+        <div class="avatar col-md-2 col-md-offset-2 hidden-sm">
+          <img class="u-photo img-circle img-responsive" alt="Darren Coxall" src="/img/avatar.jpeg">
+        </div>
+        <aside class="col-md-6">
+          <h4>About The Author</h4>
+          <p>
+            My name is <span class="p-name">Darren Coxall</span>. I am a software
+            engineer in <span class="p-region">London</span> working for
+            <a class="p-org" href="https://www.simplybusiness.co.uk">Simply
+            Business</a>. Currently my goto language is Ruby but I enjoy experimenting
+            with many languages.
+          </p>
+        </aside>
+      </footer>
+
+    </main>
+
+    <script src="/js/highlight.pack.js"></script>
+    <script src="/js/coxall.js"></script>
+
+  </body>
+</html>
+

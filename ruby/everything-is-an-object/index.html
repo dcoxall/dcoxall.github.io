@@ -1,0 +1,133 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1">
+    <title>Learning Ruby: Everything is an Object &middot; Darren Coxall</title>
+    <base href="http://www.darrencoxall.com">
+    <link href="" rel="alternate" type="application/rss+xml" title="Darren Coxall">
+    <link href="/css/coxall.css" rel="stylesheet" type="text/css">
+    <link rel="stylesheet" href="//cdnjs.cloudflare.com/ajax/libs/highlight.js/8.4/styles/tomorrow-night-eighties.min.css">
+  </head>
+  <body lang="en">
+
+    
+    <header>
+      <a href="http://www.darrencoxall.com">
+        Home
+      </a>
+    </header>
+    
+
+
+    <main class="container">
+
+      <section class="row">
+        <article class="col-md-8 col-md-offset-2">
+          <h1>Learning Ruby: Everything Is An Object</h1>
+          <div class="meta text-muted">
+            <p>
+              <time datetime="2013-07-24T20:17:00Z">
+                Wed, Jul 24, 2013
+              </time>
+            </p>
+          </div>
+          
+
+<p>The first thing to learn about Ruby is that <em>everything is an object</em>. The best way to make use of the languages features are to develop in an Object-Orientated way. This being the first article in many about learning Ruby, I will walk you through <em>classes</em> and <em>objects</em>. Ready?</p>
+
+<p>If you would like to follow along make sure you install Ruby and then create a file called <code>learn_ruby_01.rb</code>.</p>
+
+<h2 id="what-is-a-class:39aabd223f74e19e15ccec60af1d2d47">What is a Class?</h2>
+
+<p>Classes in Ruby are basically containers. They store methods that can be used and provide systems in which to store data. The main use of a class is to define something that can be created multiple times, each time with it&rsquo;s own unique data.</p>
+
+<p>Classes can be defined like so:</p>
+
+<pre><code>class MyFirstClass
+  def hello
+    puts &quot;Hello, World!&quot;
+  end
+end
+</code></pre>
+
+<p>The first line declares the class name (&lsquo;MyFirstClass&rsquo; in this example). Everything between this and <code>end</code> is the class definition. The definition in my example has a <code>hello</code> method indicated by the <code>def</code> (I believe it stands for define). Everything between the define and the next <code>end</code> is contained in the <code>hello</code> method.</p>
+
+<p>On line 3 we call a method called <code>puts</code> with the text &ldquo;Hello, World!&rdquo;. This line will output the text to the terminal/console window.</p>
+
+<p>Putting it all together we can see that we have a class called MyFirstClass which has 1 method - <code>hello</code> - which will put &ldquo;Hello, World!&rdquo; in the terminal when called.</p>
+
+<h2 id="what-is-an-object:39aabd223f74e19e15ccec60af1d2d47">What is an Object?</h2>
+
+<p>Continuing from our previous example we now create an <em>object</em> of <code>MyFirstExample</code>. To do that add the following to the bottom of our example file.</p>
+
+<pre><code>class MyFirstClass
+  def hello
+    puts &quot;Hello, World!&quot;
+  end
+end
+
+# This is a comment. Below we create an object.
+object = MyFirstObject.new
+object.hello
+</code></pre>
+
+<p>If you now run our file with <code>ruby /path/to/example.rb</code> you will see that it outputs &ldquo;Hello, World!&rdquo;.</p>
+
+<p>We&rsquo;ve created our own class but Ruby provides many to begin with. In-fact we have used 3 in our example:</p>
+
+<ol>
+<li><code>puts</code> is a method on a class called <code>Object</code> which is what amost everything in Ruby branches from.</li>
+<li>We pass text to the <code>puts</code> method but the text itself is an object of a class called <code>String</code>. Strings are just a code representation of text. Another way of showing this is <code>String.new(&quot;Hello, World!&quot;)</code>.</li>
+<li>Obviously the third is our own class - <code>MyFirstClass</code>.</li>
+</ol>
+
+<p>Ruby has a great many classes to help us start. Below is an example of a small number available to us:</p>
+
+<pre><code># Numeric represents numbers
+# It has many subclasses such as:
+234.class # =&gt; Fixnum - integers
+234.56.class # =&gt; Float - decimals
+
+# Array represents lists of objects
+[1,2,3].class # =&gt; Array
+[&quot;sentence one&quot;, &quot;sentence two&quot;].class # =&gt; Array
+
+# Hash represents a list of key value pairs
+{ :key_name =&gt; &quot;key value&quot; }.class # =&gt; Hash
+{ &quot;text key&quot; =&gt; 1234  }.class # =&gt; Hash
+
+# Even the current script is a class
+self.class # =&gt; Object
+</code></pre>
+
+<p>Next time we will look at ways we can add to classes both our own and the core classes. For now though let&rsquo;s recap. We have learnt that we can use classes to group and represent logic and code. We can create instances of classes - known as objects - which can call the defined methods. Finally we have also learnt that Ruby has many classes ready for us to use right away.</p>
+
+<p>Thanks for reading!</p>
+
+        </article>
+      </section>
+
+      <footer class="row h-card">
+        <div class="avatar col-md-2 col-md-offset-2 hidden-sm">
+          <img class="u-photo img-circle img-responsive" alt="Darren Coxall" src="/img/avatar.jpeg">
+        </div>
+        <aside class="col-md-6">
+          <h4>About The Author</h4>
+          <p>
+            My name is <span class="p-name">Darren Coxall</span>. I am a software
+            engineer in <span class="p-region">London</span> working for
+            <a class="p-org" href="https://www.simplybusiness.co.uk">Simply
+            Business</a>. Currently my goto language is Ruby but I enjoy experimenting
+            with many languages.
+          </p>
+        </aside>
+      </footer>
+
+    </main>
+
+    <script src="/js/highlight.pack.js"></script>
+    <script src="/js/coxall.js"></script>
+
+  </body>
+</html>
+

@@ -1,0 +1,142 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1">
+    <title>Continuing Clojure &middot; Darren Coxall</title>
+    <base href="http://www.darrencoxall.com">
+    <link href="" rel="alternate" type="application/rss+xml" title="Darren Coxall">
+    <link href="/css/coxall.css" rel="stylesheet" type="text/css">
+    <link rel="stylesheet" href="//cdnjs.cloudflare.com/ajax/libs/highlight.js/8.4/styles/tomorrow-night-eighties.min.css">
+  </head>
+  <body lang="en">
+
+    
+    <header>
+      <a href="http://www.darrencoxall.com">
+        Home
+      </a>
+    </header>
+    
+
+
+    <main class="container">
+
+      <section class="row">
+        <article class="col-md-8 col-md-offset-2">
+          <h1>Continuing Clojure</h1>
+          <div class="meta text-muted">
+            <p>
+              <time datetime="2014-07-24T21:59:27&#43;01:00">
+                Thu, Jul 24, 2014
+              </time>
+            </p>
+          </div>
+          
+
+<p>After getting the hang of some of the basics in my last article (<a href="http://www.darrencoxall.com/clojure/starting-clojure/" title="Getting started with Clojure">Starting Clojure</a>) I decided it was time to throw myself into some <em>slightly</em> more challenging puzzles. This post will be very code centric with some brief notes about what led me to my solutions/failures.</p>
+
+<p>Still learning I turned to <a href="http://www.4clojure.com" title="Browser based Clojure challenges">4Clojure</a> which has some nice in browser challenges. I continued using LightPaper to experiment throughout as the lack of information can be annoying when starting.</p>
+
+<h3 id="problem-21-nth-element:24cbdd6cdf252104eabe5bc43cd6c3e2">Problem 21: Nth Element</h3>
+
+<p>This was the first problem my head refused to solve quickly. At first I considered using a for loop but that felt nasty and not particularly functional. Then the answer suddenly dawned on me (and it is particularly easy).</p>
+
+<pre><code>#((vec %1) %2) ; equivalent to (nth vec i)
+</code></pre>
+
+<h3 id="problem-22-count-a-sequence:24cbdd6cdf252104eabe5bc43cd6c3e2">Problem 22: Count a sequence</h3>
+
+<p>Now this time I liked the challenge and the first time I attempted it I had a google for some tips which helped immensely. The tip was that we are effectively going through a list to generate a single number. There&rsquo;s a common functional way of doing that.</p>
+
+<pre><code>; reduce a seq but use 1 instead of the actual value
+; I had to set the initial value to 0 to prevent inc \H
+(fn [x] (reduce (fn [total s] (inc total)) 0 (seq x)))
+</code></pre>
+
+<h3 id="problem-23-reverse-a-sequence:24cbdd6cdf252104eabe5bc43cd6c3e2">Problem 23: Reverse a sequence</h3>
+
+<p>This challenge I recognised I could use the difference between the different collection types and iteratively build a list using each of the elements in the set.</p>
+
+<pre><code>#(reduce conj '() %)
+; at this point I decided reduce is my friend
+</code></pre>
+
+<h3 id="problem-26-fibonacci:24cbdd6cdf252104eabe5bc43cd6c3e2">Problem 26: Fibonacci</h3>
+
+<p>So this should be easy (and is when you know how) but it took me a while and it is solved in the official docs. I did pretty much copy it but I did make sure to learn how it worked and so please do the same.</p>
+
+<pre><code>#(take %
+  ;; take the first n results
+       (map first
+        ;; take the first value of each fib pair
+            (iterate
+            ;; infinitely add each result and the next number
+             (fn
+               [[a b]]
+               [b (+ a b)])
+             [1 1])))
+              ;; seed the sequence with [1 1] (+ 1 1)
+</code></pre>
+
+<h3 id="problem-28-flatten-a-sequence:24cbdd6cdf252104eabe5bc43cd6c3e2">Problem 28: Flatten a Sequence</h3>
+
+<p>Time to write our own <code>flatten</code>. I failed miserably here and cheated but the <a href="http://stackoverflow.com/questions/16155597/clojure-what-is-wrong-with-my-implementation-of-flatten">solution</a> my Google fu found did teach me some of the core functions I hadn&rsquo;t yet learnt and how they can be used.</p>
+
+<pre><code>;; loop through the list applying concat
+;; but recursive so we convert the elements
+;; in the list to a concat'ed list
+(fn x
+  [ls]
+   (if (sequential? ls)
+     (mapcat x ls)
+     (list ls)))
+</code></pre>
+
+<h3 id="problem-39-interleave-two-sequences:24cbdd6cdf252104eabe5bc43cd6c3e2">Problem 39: Interleave Two Sequences</h3>
+
+<p>Without using the <code>interleave</code> method I was reminded of something I read about <code>map</code> which would allow me to combine the results of multiple sequences. I ended up using <code>map</code> and <code>flatten</code> to compress the final output. I&rsquo;m sure there are tidier ways of doing this that also support sequences of sequences.</p>
+
+<pre><code>(fn [a b] (flatten (map (fn [x y] (list x y)) a b)))
+</code></pre>
+
+<h2 id="enough:24cbdd6cdf252104eabe5bc43cd6c3e2">Enough?</h2>
+
+<p>So at this point in all honesty my attention was wavering. I had started to look into actual applications of the language including how best to test them.</p>
+
+<p>I hope this hasn&rsquo;t been too tedious to read but often seeing solutions can help cement how flexible Clojure is and how all the core building blocks can fit together to solve very different problems.</p>
+
+<p>If you have followed along and have gotten a better understanding of the language now is a good point to just dive in yourself. Keep the docs at hand and make a start at writing a trivial application.</p>
+
+<p>Any future articles on Clojure will likely be focused on specific libraries (I&rsquo;m particularly interested in exploring the async features).</p>
+
+<p>Once again my solutions are just that, mine. I&rsquo;m new to the language and so if you see something I could do better then comment as it is super helpful for me to see the <em>better</em> ways of achieving results.</p>
+
+<p>Thanks for reading! I hope it helped.</p>
+
+        </article>
+      </section>
+
+      <footer class="row h-card">
+        <div class="avatar col-md-2 col-md-offset-2 hidden-sm">
+          <img class="u-photo img-circle img-responsive" alt="Darren Coxall" src="/img/avatar.jpeg">
+        </div>
+        <aside class="col-md-6">
+          <h4>About The Author</h4>
+          <p>
+            My name is <span class="p-name">Darren Coxall</span>. I am a software
+            engineer in <span class="p-region">London</span> working for
+            <a class="p-org" href="https://www.simplybusiness.co.uk">Simply
+            Business</a>. Currently my goto language is Ruby but I enjoy experimenting
+            with many languages.
+          </p>
+        </aside>
+      </footer>
+
+    </main>
+
+    <script src="/js/highlight.pack.js"></script>
+    <script src="/js/coxall.js"></script>
+
+  </body>
+</html>
+

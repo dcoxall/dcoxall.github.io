@@ -1,0 +1,906 @@
+<?xml version="1.0" encoding="utf-8" standalone="yes" ?>
+<rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom">
+  <channel>
+    <title>Darren Coxall</title>
+    <link>http://www.darrencoxall.com/</link>
+    <description>Recent content on Darren Coxall</description>
+    <generator>Hugo -- gohugo.io</generator>
+    
+    
+    
+    <lastBuildDate>Thu, 01 Jan 2015 10:00:00 UTC</lastBuildDate>
+    <atom:link href="http://www.darrencoxall.com/index.xml" rel="self" type="application/rss+xml" />
+    
+    <item>
+      <title>Refactoring Walkthrough</title>
+      <link>http://www.darrencoxall.com/ruby/refactoring-walkthrough/</link>
+      <pubDate>Thu, 01 Jan 2015 10:00:00 UTC</pubDate>
+      
+      <guid>http://www.darrencoxall.com/ruby/refactoring-walkthrough/</guid>
+      <description>&lt;p&gt;Refactoring is the process of restructuring, re-architecting and modifying
+existing code without affecting the output of the code. The aim is to reduce
+complexity simultaneously improving the ability to modify the code at a later
+date. I want to walk you through my own refactoring process with a real world
+example.&lt;/p&gt;
+
+&lt;p&gt;We will be refactoring &lt;a href=&#34;https://github.com/shtirlic/sinatra-jsonp&#34;&gt;shtirlic/sinatra-jsonp&lt;/a&gt;. This is a small
+sinatra extension that adds support for older browsers when returning json as
+it provides callback function support. I have selected this as I have used it in
+a project and I know that the main bulk of the functionality is implemented in
+a rather complex method making it a prime candidate for refactoring.&lt;/p&gt;
+
+&lt;p&gt;So to begin with I am going to fork the repository so my starting point is
+&lt;a href=&#34;https://github.com/dcoxall/sinatra-jsonp/tree/7436fd1fa38d6654560fa3e4af52c734dd818073&#34;&gt;&lt;code&gt;7436fd1fa3&lt;/code&gt;&lt;/a&gt;. If I now clone this locally I can start setting up my
+baselines and checking the tests.&lt;/p&gt;
+
+&lt;p&gt;&lt;em&gt;Tests are perhaps the single most important thing to have in place when
+refactoring. Without them it is extremely difficult to assert that the code is
+producing the same results both before and after the refactoring.&lt;/em&gt;&lt;/p&gt;
+
+&lt;pre&gt;&lt;code&gt;$ git clone git@github.com:dcoxall/sinatra-jsonp.git
+$ cd sinatra-jsonp
+$ bundle install
+$ bundle exec rake
+&lt;/code&gt;&lt;/pre&gt;
+
+&lt;p&gt;You will see that I installed any dependencies and then ran the default rake
+task. In most ruby programs this is the standard way of running the complete
+test suite. In this case it was right and all the tests passed but there were
+some deprecations.&lt;/p&gt;
+
+&lt;blockquote&gt;
+&lt;p&gt;stdlib is deprecated. Use :test_unit or :minitest instead&lt;/p&gt;
+&lt;/blockquote&gt;
+
+&lt;p&gt;Now this is a good place to start. If I can fix any issues like this now I will
+have a nicer environment to work with later so at this point I will create a
+branch.&lt;/p&gt;
+
+&lt;pre&gt;&lt;code&gt;$ git checkout -b refactor
+&lt;/code&gt;&lt;/pre&gt;
+
+&lt;p&gt;With a branch created I can start making my changes. The offending line causing
+the deprecation warning is in &lt;code&gt;spec/spec_helper.rb&lt;/code&gt; so my first action was to
+remove it and see what effect it had on the tests by running them again.&lt;/p&gt;
+
+&lt;p&gt;Low-and-behold everything passed but without any warnings. Awesome. So I can
+commit this change.&lt;/p&gt;
+
+&lt;pre&gt;&lt;code&gt;$ git add spec/spec_helper.rb
+$ git ci -m &amp;quot;Fix deprecated use of stdlib&amp;quot;
+&lt;/code&gt;&lt;/pre&gt;
+
+&lt;p&gt;Now I want to introduce a tool I like to use called &lt;a href=&#34;https://github.com/bbatsov/rubocop&#34;&gt;rubocop&lt;/a&gt; which
+can analyse ruby code to check that it follows particular conventions but more
+importantly in this case it also includes metrics that report on estimated
+complexity and an ABC rating (Assignments, branching and conditions) where a
+higher number often indicates complex or difficult to follow code. This will
+provide me a baseline and I can work on reducing these metrics providing me a
+tangible target.&lt;/p&gt;
+
+&lt;pre&gt;&lt;code&gt;$ gem install rubocop
+$ rubocop -f s --only \
+&amp;gt; Metrics/AbcSize,Metrics/MethodLength,Metrics/PerceivedComplexity
+&lt;/code&gt;&lt;/pre&gt;
+
+&lt;p&gt;In the above command I limit rubocop to look only for ABC rating, method length
+and the perceived complexity. These will be the metrics I want to improve. The
+result is the following:&lt;/p&gt;
+
+&lt;pre&gt;&lt;code&gt;== lib/sinatra/jsonp.rb ==
+C:  6:  5: Assignment Branch Condition size for jsonp is too high. [19.34/15]
+C:  6:  5: Method has too many lines. [19/10]
+C:  6:  5: Perceived complexity for jsonp is too high. [8/7]
+&lt;/code&gt;&lt;/pre&gt;
+
+&lt;p&gt;Now I have a starting point and passing tests. It&amp;rsquo;s time to look at the code.
+All the reported issues are in &lt;a href=&#34;https://github.com/dcoxall/sinatra-jsonp/blob/7436fd1fa38d6654560fa3e4af52c734dd818073/lib/sinatra/jsonp.rb&#34;&gt;&lt;code&gt;lib/sinatra/jsonp.rb&lt;/code&gt;&lt;/a&gt; which is where all
+the main logic is kept.&lt;/p&gt;
+
+&lt;p&gt;My first instinct is to go through the method and document what it is actualy
+doing. I find it much easier to re-structure the code once I understand what
+functions it is serving. It is then a case of moving pieces to their own
+methods.&lt;/p&gt;
+
+&lt;pre&gt;&lt;code&gt;def jsonp(*args)
+  # requires 1 or more arguments
+  if args.size &amp;gt; 0
+    # The first argument is the object to serialize
+    data = MultiJson.dump(
+      args[0],
+      :pretty =&amp;gt; settings.respond_to?(:json_pretty) &amp;amp;&amp;amp; settings.json_pretty
+    )
+    # If we have another argument it is the callback function name
+    if args.size &amp;gt; 1
+      callback = args[1].to_s
+    else
+      # If not then determine the callback based on the following parameters
+      [&#39;callback&#39;,&#39;jscallback&#39;,&#39;jsonp&#39;,&#39;jsoncallback&#39;].each do |x|
+        callback = params.delete(x) unless callback
+      end
+    end
+    # If we have a callback perform some basic sanitization and set the
+    # response content type and the eventual response body
+    if callback
+      callback.tr!(&#39;^a-zA-Z0-9_$\.&#39;, &#39;&#39;)
+      content_type :js
+      response = &amp;quot;#{callback}(#{data})&amp;quot;
+    else
+      # If no callback then set the response content type to json and return
+      # the serialized data
+      content_type :json
+      response = data
+    end
+    response
+  end
+end
+&lt;/code&gt;&lt;/pre&gt;
+
+&lt;p&gt;With this view I am going to work top-down and so first is to implement a guard
+condition by returning early if we have in-sufficient arguments. I then decide
+that I can make the &lt;code&gt;pretty&lt;/code&gt; flag into a different method.&lt;/p&gt;
+
+&lt;pre&gt;&lt;code&gt;# requires 1 or more arguments
+return if args.size &amp;lt; 1
+
+# The first argument is the object to serialize
+data = MultiJson.dump(args[0], :pretty =&amp;gt; display_pretty_json?)
+
+# ...
+
+private
+
+def display_pretty_json?
+  !!(settings.respond_to?(:json_pretty) &amp;amp;&amp;amp; settings.json_pretty)
+end
+&lt;/code&gt;&lt;/pre&gt;
+
+&lt;p&gt;Now running the tests and rubocop again reveal that everything is still passing
+but I have already corrected the perceived complexity of the method as well as
+improved the ABC score (by 3.03).&lt;/p&gt;
+
+&lt;pre&gt;&lt;code&gt;== lib/sinatra/jsonp.rb ==
+C:  6:  5: Assignment Branch Condition size for jsonp is too high. [16.31/15]
+C:  6:  5: Method has too many lines. [18/10]
+&lt;/code&gt;&lt;/pre&gt;
+
+&lt;p&gt;Time to commit these changes and then tackle the callback calculation.&lt;/p&gt;
+
+&lt;pre&gt;&lt;code&gt;$ git add lib/sinatra/jsonp.rb
+$ git commit -m &amp;quot;Introduce guard condition and extract setting checks&amp;quot;
+&lt;/code&gt;&lt;/pre&gt;
+
+&lt;p&gt;I move the logic for determining the callback name into a new method and I also
+move the list of parameter keys to check into a constant. This leaves us with
+the following&amp;hellip;&lt;/p&gt;
+
+&lt;pre&gt;&lt;code&gt;CALLBACK_PARAMS = %w( callback jscallback jsonp jsoncallback ).freeze
+
+def jsonp(*args)
+  return if args.size &amp;lt; 1
+
+  data = MultiJson.dump(args[0], :pretty =&amp;gt; display_pretty_json?)
+  callback = extract_callback_name(args[1])
+
+  # If we have a callback perform some basic sanitization and set the
+  # response content type and the eventual response body
+  if callback
+    callback.tr!(&#39;^a-zA-Z0-9_$\.&#39;, &#39;&#39;)
+    content_type :js
+    response = &amp;quot;#{callback}(#{data})&amp;quot;
+  else
+    # If no callback then set the response content type to json and return
+    # the serialized data
+    content_type :json
+    response = data
+  end
+  response
+end
+alias JSONP jsonp
+
+private
+
+def display_pretty_json?
+  !!(settings.respond_to?(:json_pretty) &amp;amp;&amp;amp; settings.json_pretty)
+end
+
+def extract_callback_name(name = nil)
+  if name.nil?
+    callback = nil
+    CALLBACK_PARAMS.each do |key|
+      callback = params.delete(key) unless callback
+    end
+    callback ? callback.to_s : nil
+  else
+    name.to_s
+  end
+end
+&lt;/code&gt;&lt;/pre&gt;
+
+&lt;p&gt;Again running the tests and rubocop tell me that everything is still working
+and I have now also corrected the ABC score to an acceptable level. The only
+metric that rubocop is complaining about now is the method length. Once again,
+it&amp;rsquo;s time to commit our changes and move onto finalizing the response.&lt;/p&gt;
+
+&lt;pre&gt;&lt;code&gt;$ git add lib/sinatra/jsonp.rb
+$ git commit -m &amp;quot;Callback name extraction moved to new method&amp;quot;
+&lt;/code&gt;&lt;/pre&gt;
+
+&lt;p&gt;Now for this next refactor I don&amp;rsquo;t want the method to have any side-effects and
+so I don&amp;rsquo;t want the new method to call &lt;code&gt;content_type&lt;/code&gt; explicitly but instead
+return both the response body and the correct content type which the main method
+can use.&lt;/p&gt;
+
+&lt;p&gt;The result of this is shown below&lt;/p&gt;
+
+&lt;pre&gt;&lt;code&gt;CALLBACK_PARAMS = %w( callback jscallback jsonp jsoncallback ).freeze
+
+def jsonp(*args)
+  return if args.size &amp;lt; 1
+  data = MultiJson.dump(args[0], :pretty =&amp;gt; display_pretty_json?)
+  callback = extract_callback_name(args[1])
+  type, response = determine_response(data, callback)
+  content_type(type)
+  response
+end
+alias JSONP jsonp
+
+private
+
+def determine_response(data, callback = nil)
+  return [:json, data] if callback.nil?
+  callback.tr!(&#39;^a-zA-Z0-9_$\.&#39;, &#39;&#39;)
+  [:js, format(&amp;quot;%s(%s)&amp;quot;, callback, data)]
+end
+
+def display_pretty_json?
+  !!(settings.respond_to?(:json_pretty) &amp;amp;&amp;amp; settings.json_pretty)
+end
+
+def extract_callback_name(name = nil)
+  if name.nil?
+    callback = nil
+    CALLBACK_PARAMS.each do |key|
+      callback = params.delete(key) unless callback
+    end
+    callback ? callback.to_s : nil
+  else
+    name.to_s
+  end
+end
+&lt;/code&gt;&lt;/pre&gt;
+
+&lt;p&gt;Running the tests and rubocop now reveal all tests continue to pass and rubocop
+has nothing to complain about! I can commit this and create a pull request.&lt;/p&gt;
+
+&lt;p&gt;I&amp;rsquo;ve demonstrated how I like to refactor with the aim of making the code easier
+to work with. What once was a large single method is now several smaller more
+succinct methods. This also provides an additional benefit in that the method
+names now also document the behaviour of the code making it easier for others to
+read and understand.&lt;/p&gt;
+
+&lt;p&gt;Thank you for reading. You can see the &lt;a href=&#34;https://github.com/shtirlic/sinatra-jsonp/pull/6&#34;&gt;final pull request here&lt;/a&gt;. Now go out
+and improve some code!&lt;/p&gt;
+</description>
+    </item>
+    
+    <item>
+      <title>Executing Commands in Go</title>
+      <link>http://www.darrencoxall.com/golang/executing-commands-in-go/</link>
+      <pubDate>Mon, 18 Aug 2014 09:00:00 UTC</pubDate>
+      
+      <guid>http://www.darrencoxall.com/golang/executing-commands-in-go/</guid>
+      <description>
+
+&lt;p&gt;The ability to execute external commands from within an application is something I often feel is a bit &lt;em&gt;hackish&lt;/em&gt; and I haven&amp;rsquo;t yet discovered a language that handles it as well as I would like. That was until I learned to love how Go tackles the challenge. This post will show you how to make the most of &lt;code&gt;os/exec&lt;/code&gt;.&lt;/p&gt;
+
+&lt;p&gt;I tend to feel that there are three different types of command execution within applications.&lt;/p&gt;
+
+&lt;ul&gt;
+&lt;li&gt;Plain output. For when you always expect the command to execute but all you want from it is the output.&lt;/li&gt;
+&lt;li&gt;Exit codes. These perform some cleanup, setup or check and you want to discard any output but assert the exit code.&lt;/li&gt;
+&lt;li&gt;Long running processes. This case is rarer but there are times when I want to spawn sub-processes. Maybe even starting up another server to proxy to for instance.&lt;/li&gt;
+&lt;/ul&gt;
+
+&lt;p&gt;So how do I handle these in Go? The magic all comes from the wonderful &lt;a href=&#34;http://godoc.org/os/exec&#34; title=&#34;GoDoc: os/exec&#34;&gt;os/exec&lt;/a&gt; which is part of the Go standard library. Using this library, commands become a first class citizen within your application.&lt;/p&gt;
+
+&lt;p&gt;&lt;em&gt;For all examples I am only going to include the primary logic but I will keep a link to a full copy in the Go Playgroud. The copies won&amp;rsquo;t execute within the Playground due to the restrictions Google have in place but they should run fine locally.&lt;/em&gt;&lt;/p&gt;
+
+&lt;p&gt;I have defined the following functions to keep the examples short:&lt;/p&gt;
+
+&lt;pre&gt;&lt;code&gt;func printCommand(cmd *exec.Cmd) {
+  fmt.Printf(&amp;quot;==&amp;gt; Executing: %s\n&amp;quot;, strings.Join(cmd.Args, &amp;quot; &amp;quot;))
+}
+
+func printError(err error) {
+  if err != nil {
+    os.Stderr.WriteString(fmt.Sprintf(&amp;quot;==&amp;gt; Error: %s\n&amp;quot;, err.Error()))
+  }
+}
+
+func printOutput(outs []byte) {
+  if len(outs) &amp;gt; 0 {
+    fmt.Printf(&amp;quot;==&amp;gt; Output: %s\n&amp;quot;, string(outs))
+  }
+}
+&lt;/code&gt;&lt;/pre&gt;
+
+&lt;h2 id=&#34;collecting-output:b15a4def803f966fde627651ff8cb67a&#34;&gt;Collecting output&lt;/h2&gt;
+
+&lt;p&gt;The first and most obvious use is to collect output from an external command. An easy way to do that is to use the &lt;code&gt;CombinedOutput&lt;/code&gt; function.&lt;/p&gt;
+
+&lt;pre&gt;&lt;code&gt;// Create an *exec.Cmd
+cmd := exec.Command(&amp;quot;echo&amp;quot;, &amp;quot;Called from Go!&amp;quot;)
+
+// Combine stdout and stderr
+printCommand(cmd)
+output, err := cmd.CombinedOutput()
+printError(err)
+printOutput(output) // =&amp;gt; go version go1.3 darwin/amd64
+
+// http://play.golang.org/p/-7PWDpt6zS
+&lt;/code&gt;&lt;/pre&gt;
+
+&lt;p&gt;This works well if you also want to check for any error messages output but if you want finer control over the output of a command then we can route it into different buffers giving us control over both standard output and standard error.&lt;/p&gt;
+
+&lt;pre&gt;&lt;code&gt;// Create an *exec.Cmd
+cmd := exec.Command(&amp;quot;go&amp;quot;, &amp;quot;version&amp;quot;)
+
+// Stdout buffer
+cmdOutput := &amp;amp;bytes.Buffer{}
+// Attach buffer to command
+cmd.Stdout = cmdOutput
+
+// Execute command
+printCommand(cmd)
+err := cmd.Run() // will wait for command to return
+printError(err)
+// Only output the commands stdout
+printOutput(cmdOutput.Bytes()) // =&amp;gt; go version go1.3 darwin/amd64
+
+// http://play.golang.org/p/_6xke11GMp
+&lt;/code&gt;&lt;/pre&gt;
+
+&lt;p&gt;In the above example we manually connect our own buffer to capture the commands stdout stream. We can do the same for stderr and even stdin so long as it adheres to the &lt;code&gt;io.Reader&lt;/code&gt; interface.&lt;/p&gt;
+
+&lt;p&gt;So far we&amp;rsquo;ve seen how easy it is to capture command output across multiple file descriptors. It&amp;rsquo;s more verbose then other languages but it gives us lots of flexibility.&lt;/p&gt;
+
+&lt;h2 id=&#34;exit-codes:b15a4def803f966fde627651ff8cb67a&#34;&gt;Exit codes&lt;/h2&gt;
+
+&lt;p&gt;Retrieving the exit code of a command is easy with Go. You may have already noticed in the previous examples that when executing the command Go can return an error. These errors occur if there is an issue with IO or of the command doesn&amp;rsquo;t return a successful exit code (0).&lt;/p&gt;
+
+&lt;p&gt;The following code will output the exit code of a command.&lt;/p&gt;
+
+&lt;pre&gt;&lt;code&gt;cmd := exec.Command(&amp;quot;ls&amp;quot;, &amp;quot;/imaginary/directory&amp;quot;)
+var waitStatus syscall.WaitStatus
+if err := cmd.Run(); err != nil {
+  printError(err)
+  // Did the command fail because of an unsuccessful exit code
+  if exitError, ok := err.(*exec.ExitError); ok {
+    waitStatus = exitError.Sys().(syscall.WaitStatus)
+    printOutput([]byte(fmt.Sprintf(&amp;quot;%d&amp;quot;, waitStatus.ExitStatus())))
+  }
+} else {
+  // Command was successful
+  waitStatus = cmd.ProcessState.Sys().(syscall.WaitStatus)
+  printOutput([]byte(fmt.Sprintf(&amp;quot;%d&amp;quot;, waitStatus.ExitStatus())))
+}
+
+// http://play.golang.org/p/m2A17UWSOL
+&lt;/code&gt;&lt;/pre&gt;
+
+&lt;p&gt;The above code looks more complicated but in traditional Go fashion it handles many situations.&lt;/p&gt;
+
+&lt;ul&gt;
+&lt;li&gt;Create an &lt;code&gt;*exec.Cmd&lt;/code&gt;&lt;/li&gt;
+&lt;li&gt;Execute and test for any errors&lt;/li&gt;
+&lt;li&gt;If we received an error then check it was because of the commands exit&lt;/li&gt;
+&lt;li&gt;If no error then check the commands &lt;code&gt;*os.ProcessState&lt;/code&gt; for the exit code (pretty much guaranteed to be 0 but in here for completion)&lt;/li&gt;
+&lt;/ul&gt;
+
+&lt;p&gt;A caveat to take note of is that if Go failed to locate the command in your &lt;code&gt;$PATH&lt;/code&gt; then it won&amp;rsquo;t ever execute the command and thus you will have no exit code. This is why it is important to assert the type of error returned.&lt;/p&gt;
+
+&lt;h2 id=&#34;long-running-processes:b15a4def803f966fde627651ff8cb67a&#34;&gt;Long running processes&lt;/h2&gt;
+
+&lt;p&gt;All our above examples are synchronous. They wait for the command to complete before continuing the execution of our application. If we wanted to execute a long running task however it is likely that we want it to happen asynchronously. Once again this is trivially easy.&lt;/p&gt;
+
+&lt;pre&gt;&lt;code&gt;cmd := exec.Command(&amp;quot;cat&amp;quot;, &amp;quot;/dev/random&amp;quot;)
+randomBytes := &amp;amp;bytes.Buffer{}
+cmd.Stdout = randomBytes
+
+// Start command asynchronously
+err := cmd.Start()
+printError(err)
+
+// Create a ticker that outputs elapsed time
+ticker := time.NewTicker(time.Second)
+go func(ticker *time.Ticker) {
+  now := time.Now()
+  for _ = range ticker.C {
+    printOutput(
+      []byte(fmt.Sprintf(&amp;quot;%s&amp;quot;, time.Since(now))),
+    )
+  }
+}(ticker)
+
+// Create a timer that will kill the process
+timer := time.NewTimer(time.Second * 4)
+go func(timer *time.Timer, ticker *time.Ticker, cmd *exec.Cmd) {
+  for _ = range timer.C {
+    err := cmd.Process.Signal(os.Kill)
+    printError(err)
+    ticker.Stop()
+  }
+}(timer, ticker, cmd)
+
+// Only proceed once the process has finished
+cmd.Wait()
+printOutput(
+  []byte(fmt.Sprintf(&amp;quot;%d bytes generated!&amp;quot;, len(randomBytes.Bytes()))),
+)
+
+// http://play.golang.org/p/tQRk1xJOqW
+&lt;/code&gt;&lt;/pre&gt;
+
+&lt;p&gt;Now that was a lot more work but it all makes good sense. I started a computationaly difficult task of generating a collection of random bytes. Next I start that command asynchronously and then begin a ticker to show the elapsed time and a timer to kill the process after 4 seconds. Once the process has been killed then we output the total number of generated bytes.&lt;/p&gt;
+
+&lt;p&gt;&lt;em&gt;A small disclaimer. I don&amp;rsquo;t claim that this is the best way to do this but it demonstrates asynchronous commands and the ability to send signals to the process within our application.&lt;/em&gt;&lt;/p&gt;
+
+&lt;h2 id=&#34;closing-comments:b15a4def803f966fde627651ff8cb67a&#34;&gt;Closing comments&lt;/h2&gt;
+
+&lt;p&gt;This has been quite a technical post but we have covered lots of ground with the flexibility of &lt;code&gt;os/exec&lt;/code&gt;. I have tested all the examples on my Mac using go1.3. Any suggestions/improvements are welcomed.&lt;/p&gt;
+
+&lt;p&gt;I hope I&amp;rsquo;ve been able to get across why I&amp;rsquo;m beginning to really enjoy working with Go.&lt;/p&gt;
+</description>
+    </item>
+    
+    <item>
+      <title>Continuing Clojure</title>
+      <link>http://www.darrencoxall.com/clojure/continuing-clojure/</link>
+      <pubDate>Thu, 24 Jul 2014 21:59:27 BST</pubDate>
+      
+      <guid>http://www.darrencoxall.com/clojure/continuing-clojure/</guid>
+      <description>
+
+&lt;p&gt;After getting the hang of some of the basics in my last article (&lt;a href=&#34;http://www.darrencoxall.com/clojure/starting-clojure/&#34; title=&#34;Getting started with Clojure&#34;&gt;Starting Clojure&lt;/a&gt;) I decided it was time to throw myself into some &lt;em&gt;slightly&lt;/em&gt; more challenging puzzles. This post will be very code centric with some brief notes about what led me to my solutions/failures.&lt;/p&gt;
+
+&lt;p&gt;Still learning I turned to &lt;a href=&#34;http://www.4clojure.com&#34; title=&#34;Browser based Clojure challenges&#34;&gt;4Clojure&lt;/a&gt; which has some nice in browser challenges. I continued using LightPaper to experiment throughout as the lack of information can be annoying when starting.&lt;/p&gt;
+
+&lt;h3 id=&#34;problem-21-nth-element:24cbdd6cdf252104eabe5bc43cd6c3e2&#34;&gt;Problem 21: Nth Element&lt;/h3&gt;
+
+&lt;p&gt;This was the first problem my head refused to solve quickly. At first I considered using a for loop but that felt nasty and not particularly functional. Then the answer suddenly dawned on me (and it is particularly easy).&lt;/p&gt;
+
+&lt;pre&gt;&lt;code&gt;#((vec %1) %2) ; equivalent to (nth vec i)
+&lt;/code&gt;&lt;/pre&gt;
+
+&lt;h3 id=&#34;problem-22-count-a-sequence:24cbdd6cdf252104eabe5bc43cd6c3e2&#34;&gt;Problem 22: Count a sequence&lt;/h3&gt;
+
+&lt;p&gt;Now this time I liked the challenge and the first time I attempted it I had a google for some tips which helped immensely. The tip was that we are effectively going through a list to generate a single number. There&amp;rsquo;s a common functional way of doing that.&lt;/p&gt;
+
+&lt;pre&gt;&lt;code&gt;; reduce a seq but use 1 instead of the actual value
+; I had to set the initial value to 0 to prevent inc \H
+(fn [x] (reduce (fn [total s] (inc total)) 0 (seq x)))
+&lt;/code&gt;&lt;/pre&gt;
+
+&lt;h3 id=&#34;problem-23-reverse-a-sequence:24cbdd6cdf252104eabe5bc43cd6c3e2&#34;&gt;Problem 23: Reverse a sequence&lt;/h3&gt;
+
+&lt;p&gt;This challenge I recognised I could use the difference between the different collection types and iteratively build a list using each of the elements in the set.&lt;/p&gt;
+
+&lt;pre&gt;&lt;code&gt;#(reduce conj &#39;() %)
+; at this point I decided reduce is my friend
+&lt;/code&gt;&lt;/pre&gt;
+
+&lt;h3 id=&#34;problem-26-fibonacci:24cbdd6cdf252104eabe5bc43cd6c3e2&#34;&gt;Problem 26: Fibonacci&lt;/h3&gt;
+
+&lt;p&gt;So this should be easy (and is when you know how) but it took me a while and it is solved in the official docs. I did pretty much copy it but I did make sure to learn how it worked and so please do the same.&lt;/p&gt;
+
+&lt;pre&gt;&lt;code&gt;#(take %
+  ;; take the first n results
+       (map first
+        ;; take the first value of each fib pair
+            (iterate
+            ;; infinitely add each result and the next number
+             (fn
+               [[a b]]
+               [b (+ a b)])
+             [1 1])))
+              ;; seed the sequence with [1 1] (+ 1 1)
+&lt;/code&gt;&lt;/pre&gt;
+
+&lt;h3 id=&#34;problem-28-flatten-a-sequence:24cbdd6cdf252104eabe5bc43cd6c3e2&#34;&gt;Problem 28: Flatten a Sequence&lt;/h3&gt;
+
+&lt;p&gt;Time to write our own &lt;code&gt;flatten&lt;/code&gt;. I failed miserably here and cheated but the &lt;a href=&#34;http://stackoverflow.com/questions/16155597/clojure-what-is-wrong-with-my-implementation-of-flatten&#34;&gt;solution&lt;/a&gt; my Google fu found did teach me some of the core functions I hadn&amp;rsquo;t yet learnt and how they can be used.&lt;/p&gt;
+
+&lt;pre&gt;&lt;code&gt;;; loop through the list applying concat
+;; but recursive so we convert the elements
+;; in the list to a concat&#39;ed list
+(fn x
+  [ls]
+   (if (sequential? ls)
+     (mapcat x ls)
+     (list ls)))
+&lt;/code&gt;&lt;/pre&gt;
+
+&lt;h3 id=&#34;problem-39-interleave-two-sequences:24cbdd6cdf252104eabe5bc43cd6c3e2&#34;&gt;Problem 39: Interleave Two Sequences&lt;/h3&gt;
+
+&lt;p&gt;Without using the &lt;code&gt;interleave&lt;/code&gt; method I was reminded of something I read about &lt;code&gt;map&lt;/code&gt; which would allow me to combine the results of multiple sequences. I ended up using &lt;code&gt;map&lt;/code&gt; and &lt;code&gt;flatten&lt;/code&gt; to compress the final output. I&amp;rsquo;m sure there are tidier ways of doing this that also support sequences of sequences.&lt;/p&gt;
+
+&lt;pre&gt;&lt;code&gt;(fn [a b] (flatten (map (fn [x y] (list x y)) a b)))
+&lt;/code&gt;&lt;/pre&gt;
+
+&lt;h2 id=&#34;enough:24cbdd6cdf252104eabe5bc43cd6c3e2&#34;&gt;Enough?&lt;/h2&gt;
+
+&lt;p&gt;So at this point in all honesty my attention was wavering. I had started to look into actual applications of the language including how best to test them.&lt;/p&gt;
+
+&lt;p&gt;I hope this hasn&amp;rsquo;t been too tedious to read but often seeing solutions can help cement how flexible Clojure is and how all the core building blocks can fit together to solve very different problems.&lt;/p&gt;
+
+&lt;p&gt;If you have followed along and have gotten a better understanding of the language now is a good point to just dive in yourself. Keep the docs at hand and make a start at writing a trivial application.&lt;/p&gt;
+
+&lt;p&gt;Any future articles on Clojure will likely be focused on specific libraries (I&amp;rsquo;m particularly interested in exploring the async features).&lt;/p&gt;
+
+&lt;p&gt;Once again my solutions are just that, mine. I&amp;rsquo;m new to the language and so if you see something I could do better then comment as it is super helpful for me to see the &lt;em&gt;better&lt;/em&gt; ways of achieving results.&lt;/p&gt;
+
+&lt;p&gt;Thanks for reading! I hope it helped.&lt;/p&gt;
+</description>
+    </item>
+    
+    <item>
+      <title>Starting Clojure</title>
+      <link>http://www.darrencoxall.com/clojure/starting-clojure/</link>
+      <pubDate>Wed, 02 Jul 2014 20:44:08 BST</pubDate>
+      
+      <guid>http://www.darrencoxall.com/clojure/starting-clojure/</guid>
+      <description>
+
+&lt;p&gt;I&amp;rsquo;ve been developing Ruby for years now and I love it but I&amp;rsquo;m getting too comfortable with it. I know as well as any good developer that it isn&amp;rsquo;t the best tool for every job. It&amp;rsquo;s my job to be able to build the right software the right way and that should include the language selection. So, time to take the plunge and learn another language from scratch.&lt;/p&gt;
+
+&lt;h2 id=&#34;clojure-basics:9c0300697a63d0241134deb40fce7bdc&#34;&gt;Clojure basics&lt;/h2&gt;
+
+&lt;p&gt;I selected Clojure because I find it interesting. There is something about its syntax that draws me too it. I&amp;rsquo;ve been enjoying Go recently thanks to how easily I can write multi-threaded applications and so Clojure is also a good choice with immutable data structures.&lt;/p&gt;
+
+&lt;p&gt;So first place was to the &lt;a href=&#34;http://clojure.org&#34; title=&#34;Official Clojure Site&#34;&gt;homepage&lt;/a&gt;. I checked out a few of the tutorials and resources and settled on &lt;a href=&#34;http://aphyr.com/posts/301-clojure-from-the-ground-up-welcome&#34; title=&#34;Learning Clojure Guides&#34;&gt;Clojure from the ground up&lt;/a&gt;.&lt;/p&gt;
+
+&lt;p&gt;Following the instructions I installed &lt;a href=&#34;http://leiningen.org/&#34;&gt;Leiningen&lt;/a&gt;, which seems to be a &lt;code&gt;Bundle&lt;/code&gt; like tool for the language which is a relief for me as it also handles the installation of Clojure itself as well.&lt;/p&gt;
+
+&lt;p&gt;The inclusion of a REPL is a god-send to a developer like me learning as it means I can experiment quickly and learn the basics. I then also discovered &lt;a href=&#34;http://www.lighttable.com/&#34;&gt;Light Table&lt;/a&gt; which includes a live REPL feature which is brilliant as it also allows you to indent the code making it much easier to read.&lt;/p&gt;
+
+&lt;p&gt;Slowly I can see the patterns in the language such as &lt;code&gt;conj&lt;/code&gt; for inserting additional elements into lists/sets/vectors but the fact they all work slightly differently is &amp;lsquo;nice to know&amp;rsquo; now rather than later.&lt;/p&gt;
+
+&lt;p&gt;The first part that gets interesting (IMO) is the introduction of &lt;code&gt;lets&lt;/code&gt; as this is where code re-use comes into play. Unfortunately the examples are lost on me a bit. My first question was how does let differ from just executing the code?&lt;/p&gt;
+
+&lt;pre&gt;&lt;code&gt;(let [hello &amp;quot;&amp;quot;] (str &amp;quot;Hello, &amp;quot; hello &amp;quot;!&amp;quot;))
+(hello &amp;quot;Darren&amp;quot;)
+; CompilerException java.lang.RuntimeException: Unable to resolve symbol: hello in this context, compiling:(NO_SOURCE_PATH:0:0)
+&lt;/code&gt;&lt;/pre&gt;
+
+&lt;p&gt;So how is the above useful? Well let looks as though it provides a context (I could be wrong, if so please correct me). The guide introduces &lt;code&gt;fn&lt;/code&gt; so adapting my previous test:&lt;/p&gt;
+
+&lt;pre&gt;&lt;code&gt;(let [hello (fn [name] (str &amp;quot;Hello, &amp;quot; name &amp;quot;!&amp;quot;))]
+  (hello &amp;quot;Darren&amp;quot;)) ; =&amp;gt; &amp;quot;Hello, Darren!&amp;quot;
+&lt;/code&gt;&lt;/pre&gt;
+
+&lt;p&gt;So that worked. After declaring a function I could re-use it within that particular expression. Moving on we are introduced to &lt;code&gt;def&lt;/code&gt;.&lt;/p&gt;
+
+&lt;pre&gt;&lt;code&gt;(def hello (fn [name] (str &amp;quot;Hello, &amp;quot; name &amp;quot;!&amp;quot;)))
+(hello &amp;quot;Darren&amp;quot;) ; =&amp;gt; &amp;quot;Hello, Darren!&amp;quot;
+&lt;/code&gt;&lt;/pre&gt;
+
+&lt;p&gt;Now this feels closer to what I know (which can be further abbreviated using &lt;code&gt;defn&lt;/code&gt;). I can now build re-usable components although this is the first introduction to something mutable within Clojure.&lt;/p&gt;
+
+&lt;p&gt;So continuing on I learn about supporting different arities and an introduction to some of the recursion functions. Now these are only starts but with them I could adjust my method to support multiple names.&lt;/p&gt;
+
+&lt;pre&gt;&lt;code&gt;(defn hello
+     ([name] (if (coll? name)
+               (str &amp;quot;Hello, &amp;quot; (apply str (interpose &amp;quot;, &amp;quot; name)) &amp;quot;!&amp;quot;)
+               (str &amp;quot;Hey &amp;quot; name &amp;quot;!&amp;quot;))))
+
+
+(hello &#39;(&amp;quot;Darren&amp;quot; &amp;quot;Danika&amp;quot;))
+&lt;/code&gt;&lt;/pre&gt;
+
+&lt;p&gt;Or I could go a little step further&amp;hellip;&lt;/p&gt;
+
+&lt;pre&gt;&lt;code&gt;(defn human-list
+  ([names]
+   (cond
+    (= (count names) 0) &amp;quot;&amp;quot;
+    (= (count names) 1) (peek names)
+    (&amp;gt; (count names) 1) (str
+                         (apply str
+                                (interpose &amp;quot;, &amp;quot; (reverse (rest (reverse names)))))
+                                &amp;quot; and &amp;quot; (peek (reverse names))))))
+
+(human-list (list)) ; =&amp;gt; &amp;quot;&amp;quot;
+(human-list &#39;(&amp;quot;A&amp;quot;)) ; =&amp;gt; &amp;quot;A&amp;quot;
+(human-list &#39;(&amp;quot;A&amp;quot; &amp;quot;B&amp;quot;)) ; =&amp;gt; &amp;quot;A and B&amp;quot;
+(human-list &#39;(&amp;quot;A&amp;quot; &amp;quot;B&amp;quot; &amp;quot;C&amp;quot;)) ; =&amp;gt; &amp;quot;A, B and C&amp;quot;
+
+(defn hello
+     ([name] (if (coll? name)
+               (str &amp;quot;Hello &amp;quot; (human-list name) &amp;quot;!&amp;quot;)
+               (str &amp;quot;Hey &amp;quot; name &amp;quot;!&amp;quot;))))
+
+
+(hello &amp;quot;Darren&amp;quot;) ; =&amp;gt; &amp;quot;Hey Darren!&amp;quot;
+(hello &#39;(&amp;quot;Darren&amp;quot;)) ; =&amp;gt; &amp;quot;Hello Darren!&amp;quot;
+(hello &#39;(&amp;quot;Darren&amp;quot; &amp;quot;Danika&amp;quot;)) ; =&amp;gt; &amp;quot;Hello Darren and Danika!&amp;quot;
+(hello &#39;(&amp;quot;Darren&amp;quot; &amp;quot;Danika&amp;quot; &amp;quot;George&amp;quot;)) ; =&amp;gt; &amp;quot;Hello Darren, Danika and George!&amp;quot;
+&lt;/code&gt;&lt;/pre&gt;
+
+&lt;p&gt;I&amp;rsquo;m enjoying the language although it is a stretch for me to do these things in a functional way and trying to avoid variables. Clojure does seem to encourage small abstractions as it can get difficult to read and follow when methods get large. That may well be because I&amp;rsquo;m new to the language and do things in strange ways but it&amp;rsquo;s all part of the learning experience right?&lt;/p&gt;
+</description>
+    </item>
+    
+    <item>
+      <title>Cross Compiling Go Is Easy</title>
+      <link>http://www.darrencoxall.com/golang/cross-compiling-go-is-easy/</link>
+      <pubDate>Tue, 22 Oct 2013 19:17:00 UTC</pubDate>
+      
+      <guid>http://www.darrencoxall.com/golang/cross-compiling-go-is-easy/</guid>
+      <description>&lt;p&gt;I have found myself spending ever increasing amounts of time developing in Go (golang). Not because I need to, but because it&amp;rsquo;s a refreshing change from my usual. One thing I was interested in however was simply getting my code to work &lt;em&gt;almost&lt;/em&gt; anywhere which is harder with Go seeing as it needs a platform to target.&lt;/p&gt;
+
+&lt;p&gt;Initially I installed Go manually following the instructions on their website. I then started to see an abbreviation cropping up in places that caught my attention. &lt;a href=&#34;https://github.com/moovweb/gvm&#34; title=&#34;Go Version Manager&#34;&gt;GVM (Go Version Manager)&lt;/a&gt;. It is essentially the rbenv to ruby.&lt;/p&gt;
+
+&lt;p&gt;I won&amp;rsquo;t put the installation instructions here. Don&amp;rsquo;t be lazy just click through and have a read it is dead simple. My favourite feature of GVM wasn&amp;rsquo;t the ease of installation as frankly Go is easy to install without it but the fact it rolled up all I needed to cross compile my code without me having to do any looking up. I just hacked together a bash script that would do the job for me.&lt;/p&gt;
+
+&lt;p&gt;First off set-up GVM and then install a version of Go. Then we can install the software required to compile for the various platforms. To do this I wrote the following:&lt;/p&gt;
+
+&lt;pre&gt;&lt;code&gt;for GOOS in linux darwin windows
+do
+  for GOARCH in amd64 386
+  do
+    gvm cross $GOOS $GOARCH
+  done
+done
+&lt;/code&gt;&lt;/pre&gt;
+
+&lt;p&gt;Once that is complete you should now be able to create a helper script to do the actual compilation. Feel free to customise to your needs.&lt;/p&gt;
+
+&lt;pre&gt;&lt;code&gt;#!/bin/bash
+APPNAME=example
+for GOOS in linux darwin windows
+do
+  for GOARCH in amd64 386
+  do
+    GO_ENABLED=0 GOOS=$GOOS GOARCH=$GOARCH go build -o &amp;quot;bin/$APPNAME$GOOS-$GOARCH&amp;quot; &amp;quot;$APPNAME.go&amp;quot;
+  done
+done
+&lt;/code&gt;&lt;/pre&gt;
+
+&lt;p&gt;Make the script executable and now you should have a very crude way of cross compiling your go projects.&lt;/p&gt;
+
+&lt;p&gt;Remember this isn&amp;rsquo;t meant to be a one size fits all. It got me up and running quickly. There is almost certainly going to be a more comprehensive way of doing this but I didn&amp;rsquo;t need it. All I needed were these few lines of bash and GVM.&lt;/p&gt;
+</description>
+    </item>
+    
+    <item>
+      <title>Learning Ruby: Everything is an Object</title>
+      <link>http://www.darrencoxall.com/ruby/everything-is-an-object/</link>
+      <pubDate>Wed, 24 Jul 2013 20:17:00 UTC</pubDate>
+      
+      <guid>http://www.darrencoxall.com/ruby/everything-is-an-object/</guid>
+      <description>
+
+&lt;p&gt;The first thing to learn about Ruby is that &lt;em&gt;everything is an object&lt;/em&gt;. The best way to make use of the languages features are to develop in an Object-Orientated way. This being the first article in many about learning Ruby, I will walk you through &lt;em&gt;classes&lt;/em&gt; and &lt;em&gt;objects&lt;/em&gt;. Ready?&lt;/p&gt;
+
+&lt;p&gt;If you would like to follow along make sure you install Ruby and then create a file called &lt;code&gt;learn_ruby_01.rb&lt;/code&gt;.&lt;/p&gt;
+
+&lt;h2 id=&#34;what-is-a-class:39aabd223f74e19e15ccec60af1d2d47&#34;&gt;What is a Class?&lt;/h2&gt;
+
+&lt;p&gt;Classes in Ruby are basically containers. They store methods that can be used and provide systems in which to store data. The main use of a class is to define something that can be created multiple times, each time with it&amp;rsquo;s own unique data.&lt;/p&gt;
+
+&lt;p&gt;Classes can be defined like so:&lt;/p&gt;
+
+&lt;pre&gt;&lt;code&gt;class MyFirstClass
+  def hello
+    puts &amp;quot;Hello, World!&amp;quot;
+  end
+end
+&lt;/code&gt;&lt;/pre&gt;
+
+&lt;p&gt;The first line declares the class name (&amp;lsquo;MyFirstClass&amp;rsquo; in this example). Everything between this and &lt;code&gt;end&lt;/code&gt; is the class definition. The definition in my example has a &lt;code&gt;hello&lt;/code&gt; method indicated by the &lt;code&gt;def&lt;/code&gt; (I believe it stands for define). Everything between the define and the next &lt;code&gt;end&lt;/code&gt; is contained in the &lt;code&gt;hello&lt;/code&gt; method.&lt;/p&gt;
+
+&lt;p&gt;On line 3 we call a method called &lt;code&gt;puts&lt;/code&gt; with the text &amp;ldquo;Hello, World!&amp;rdquo;. This line will output the text to the terminal/console window.&lt;/p&gt;
+
+&lt;p&gt;Putting it all together we can see that we have a class called MyFirstClass which has 1 method - &lt;code&gt;hello&lt;/code&gt; - which will put &amp;ldquo;Hello, World!&amp;rdquo; in the terminal when called.&lt;/p&gt;
+
+&lt;h2 id=&#34;what-is-an-object:39aabd223f74e19e15ccec60af1d2d47&#34;&gt;What is an Object?&lt;/h2&gt;
+
+&lt;p&gt;Continuing from our previous example we now create an &lt;em&gt;object&lt;/em&gt; of &lt;code&gt;MyFirstExample&lt;/code&gt;. To do that add the following to the bottom of our example file.&lt;/p&gt;
+
+&lt;pre&gt;&lt;code&gt;class MyFirstClass
+  def hello
+    puts &amp;quot;Hello, World!&amp;quot;
+  end
+end
+
+# This is a comment. Below we create an object.
+object = MyFirstObject.new
+object.hello
+&lt;/code&gt;&lt;/pre&gt;
+
+&lt;p&gt;If you now run our file with &lt;code&gt;ruby /path/to/example.rb&lt;/code&gt; you will see that it outputs &amp;ldquo;Hello, World!&amp;rdquo;.&lt;/p&gt;
+
+&lt;p&gt;We&amp;rsquo;ve created our own class but Ruby provides many to begin with. In-fact we have used 3 in our example:&lt;/p&gt;
+
+&lt;ol&gt;
+&lt;li&gt;&lt;code&gt;puts&lt;/code&gt; is a method on a class called &lt;code&gt;Object&lt;/code&gt; which is what amost everything in Ruby branches from.&lt;/li&gt;
+&lt;li&gt;We pass text to the &lt;code&gt;puts&lt;/code&gt; method but the text itself is an object of a class called &lt;code&gt;String&lt;/code&gt;. Strings are just a code representation of text. Another way of showing this is &lt;code&gt;String.new(&amp;quot;Hello, World!&amp;quot;)&lt;/code&gt;.&lt;/li&gt;
+&lt;li&gt;Obviously the third is our own class - &lt;code&gt;MyFirstClass&lt;/code&gt;.&lt;/li&gt;
+&lt;/ol&gt;
+
+&lt;p&gt;Ruby has a great many classes to help us start. Below is an example of a small number available to us:&lt;/p&gt;
+
+&lt;pre&gt;&lt;code&gt;# Numeric represents numbers
+# It has many subclasses such as:
+234.class # =&amp;gt; Fixnum - integers
+234.56.class # =&amp;gt; Float - decimals
+
+# Array represents lists of objects
+[1,2,3].class # =&amp;gt; Array
+[&amp;quot;sentence one&amp;quot;, &amp;quot;sentence two&amp;quot;].class # =&amp;gt; Array
+
+# Hash represents a list of key value pairs
+{ :key_name =&amp;gt; &amp;quot;key value&amp;quot; }.class # =&amp;gt; Hash
+{ &amp;quot;text key&amp;quot; =&amp;gt; 1234  }.class # =&amp;gt; Hash
+
+# Even the current script is a class
+self.class # =&amp;gt; Object
+&lt;/code&gt;&lt;/pre&gt;
+
+&lt;p&gt;Next time we will look at ways we can add to classes both our own and the core classes. For now though let&amp;rsquo;s recap. We have learnt that we can use classes to group and represent logic and code. We can create instances of classes - known as objects - which can call the defined methods. Finally we have also learnt that Ruby has many classes ready for us to use right away.&lt;/p&gt;
+
+&lt;p&gt;Thanks for reading!&lt;/p&gt;
+</description>
+    </item>
+    
+    <item>
+      <title>Getting to know Go (Golang)</title>
+      <link>http://www.darrencoxall.com/golang/getting-to-know-go/</link>
+      <pubDate>Tue, 02 Apr 2013 08:00:00 UTC</pubDate>
+      
+      <guid>http://www.darrencoxall.com/golang/getting-to-know-go/</guid>
+      <description>
+
+&lt;p&gt;Being ever on the lookout for cool technologies, I stumbled upon the wonderful new &lt;em&gt;language&lt;/em&gt; &amp;lsquo;&lt;a href=&#34;http://golang.org/&#34; title=&#34;Golang&#34;&gt;Go&lt;/a&gt;&amp;rsquo;. Developed by Google as a means of combatting the flaws and shortcomings of current languages such as Java and C++ when it comes to highly concurrent requirements.&lt;/p&gt;
+
+&lt;p&gt;Go &lt;em&gt;(or Golang as it is often referred to)&lt;/em&gt; is a strong typed, compiled language. It was built from the ground up for concurrency and thread-safety support. The brilliant standard library utilises this and in doing so makes it extremely easy to  develop concurrent applications.&lt;/p&gt;
+
+&lt;p&gt;There are numerous &lt;em&gt;hard-edge&lt;/em&gt; decisions made with the language including the very C like object system and a unique function visibility system. Go is an object orientated language but the method/function definitions are much more explicit&amp;hellip;&lt;/p&gt;
+
+&lt;pre&gt;&lt;code&gt;// DoSomething operates on an object of type MyObject
+// and accepts a string parameter.
+// The function will return a boolean.
+func (obj MyObject) DoSomething(name string) (bool) {
+  // ...
+}
+&lt;/code&gt;&lt;/pre&gt;
+
+&lt;p&gt;The system used to determine function visibility is also &lt;em&gt;different&lt;/em&gt; to the tried and tested. Functions and variables that begin with a lowercase character are only accessible within their package whereas those beginning with an uppercase character are usable elsewhere.&lt;/p&gt;
+
+&lt;h2 id=&#34;what-am-i-doing-with-go:fe2cccec5024f852eeb2b45cb4bebf66&#34;&gt;What am I doing with Go?&lt;/h2&gt;
+
+&lt;p&gt;I am currently in the process of writing a web application consisting of an API and a JavaScript front-end. I was leaning towards using Ruby on Rails but when I am just creating an API many of the features provided by Rails are un-necessary. It brings with it a larger overhead. I have always been aware of this but it wasn&amp;rsquo;t until I saw a &lt;a href=&#34;http://www.techempower.com/blog/2013/03/28/framework-benchmarks/&#34; title=&#34;Framework Benchmarks&#34;&gt;recent benchmark&lt;/a&gt; that I was encouraged to look elsewhere, after all, I should be selecting the best tool for the job not forcing my favourite tool to do everything. The results of the benchmark gave me an excuse to check out Go.&lt;/p&gt;
+
+&lt;p&gt;&lt;em&gt;Before any complaints - I will be the first to say comparing Go to Rails is un-fair. Rails is a framework and Go is a language. I know this but it still allows me to question if a large framework is needed on a project that has just a single JSON API. I decided the answer was No.&lt;/em&gt;&lt;/p&gt;
+
+&lt;h2 id=&#34;my-opinions-thoughts:fe2cccec5024f852eeb2b45cb4bebf66&#34;&gt;My opinions &amp;amp; thoughts&lt;/h2&gt;
+
+&lt;p&gt;Coming from a Ruby background Go was certainly a big change but I like a good challenge. It is easy to forget how much is handled for you when using a large framework such as Rails. Go does very little for you. Even with a fantastic standard library and brilliant documentation, there is a lot more to be done in Go to create a working web application.&lt;/p&gt;
+
+&lt;p&gt;There is a benefit to working from the core up. You get 100% control over which features you include and how much configuration your application &lt;em&gt;actually&lt;/em&gt; requires. Go will even go as far as formatting your code so the real development time is spent designing and implementing your application. There are no frameworks that you have to work around.&lt;/p&gt;
+
+&lt;p&gt;By developing in this way using Go you can gain massive &lt;a href=&#34;http://blog.iron.io/2013/03/how-we-went-from-30-servers-to-2-go.html&#34; title=&#34;Performance Improvements using Go&#34;&gt;performance improvements&lt;/a&gt; and start leveraging modern hardware using concurrency.&lt;/p&gt;
+
+&lt;p&gt;I am really enjoying Go and I hope to continue developing with it in the future. It doesn&amp;rsquo;t feel like a language designed for traditional web applications such as Rails but it does have many strengths that make it a much better option for more streamlined services.&lt;/p&gt;
+
+&lt;h3 id=&#34;closing-comments:fe2cccec5024f852eeb2b45cb4bebf66&#34;&gt;Closing Comments&lt;/h3&gt;
+
+&lt;p&gt;I hope this article does highlight why as developers we should be looking to constantly learn. We shouldn&amp;rsquo;t have a single language or framework that we believe has everything because it frankly doesn&amp;rsquo;t exist. The best tool is completely opinionated and is determined by the project and the environment in which it is developed.&lt;/p&gt;
+
+&lt;p&gt;Oh… And Go is super cool and quick. Remember that it is a language and isn&amp;rsquo;t designed for just web applications but &lt;em&gt;applications&lt;/em&gt; in general.&lt;/p&gt;
+
+&lt;p&gt;&lt;strong&gt;EDIT:&lt;/strong&gt; I have created a basic vagrant repository that can help people by installing and preparing a golang environment. Check out &lt;a href=&#34;https://github.com/dcoxall/vagrant-golang&#34; title=&#34;dcoxall/vagrant-golang&#34;&gt;vagrant-golang&lt;/a&gt;&lt;/p&gt;
+</description>
+    </item>
+    
+    <item>
+      <title>Boxen and My Experience</title>
+      <link>http://www.darrencoxall.com/tools/boxen-and-my-experience/</link>
+      <pubDate>Sun, 03 Mar 2013 15:00:00 UTC</pubDate>
+      
+      <guid>http://www.darrencoxall.com/tools/boxen-and-my-experience/</guid>
+      <description>
+
+&lt;p&gt;&lt;a href=&#34;https://github.com/boxen&#34; title=&#34;Boxen&#34;&gt;Boxen&lt;/a&gt; is a new tool that allows new Macs to be quickly set-up using the same technologies that sysops have become accustomed to, Puppet. Now Puppet has it&amp;rsquo;s own language to define what actions are executed on target machine. It was originally developed to help prepare &lt;em&gt;cloud&lt;/em&gt; servers for easier management/deployment.&lt;/p&gt;
+
+&lt;p&gt;The popularity of Puppet has increased and it has become a widely used tool and so the team over at &lt;a href=&#34;https://github.com/&#34; title=&#34;GitHub&#34;&gt;github.com&lt;/a&gt; decided to build a system that utilises it to perform similar setup tasks on Macs.&lt;/p&gt;
+
+&lt;p&gt;I have only spent a couple of days using Boxen but it has given me some fairly strong opinion. Before I dive in with my thoughts I must own up to &lt;em&gt;(still)&lt;/em&gt; not completely understanding the Puppet language and this is likely a large cause of many of my issues.&lt;/p&gt;
+
+&lt;h2 id=&#34;developing-for-boxen:d409599d847cdf6f6abf21fe7800a8cc&#34;&gt;Developing for Boxen&lt;/h2&gt;
+
+&lt;p&gt;Getting started with Boxen is quick and easy. Following the provided instructions works perfectly. The pre-made puppet classes and libraries developed for Boxen all seem to work brilliantly. I had only minor issues with 1 of the repos but this was easy to get around.&lt;/p&gt;
+
+&lt;p&gt;The difficulty comes when creating your own Puppet modules. I had trouble figuring out how to test that the documents worked as expected. Running boxen, having it install multiple pieces of software and tools only for it to fail near the end. This wouldn&amp;rsquo;t be so bad but a couple of pre-flight checks built into Boxen meant I would have to uninstall the software to retry. This became a pain. Many of you may read this and think:&lt;/p&gt;
+
+&lt;blockquote&gt;
+&lt;p&gt;Why not just remove the checks? It&amp;rsquo;s all open source after all.&lt;/p&gt;
+&lt;/blockquote&gt;
+
+&lt;p&gt;It&amp;rsquo;s easy enough to do. A project search shows where the checks are performed but this requires direct modification of the Boxen tool as opposed to the configuration. It becomes less configuration and more alteration of the tool itself which I was a little &lt;em&gt;un-comfortable&lt;/em&gt; with.&lt;/p&gt;
+
+&lt;p&gt;There are gems that come with Boxen to help provide tests but I couldn&amp;rsquo;t get them to work as expected and with little to no documentation on testing boxen configurations I had to abandon a proper set of tests for just manually running the tool.&lt;/p&gt;
+
+&lt;h2 id=&#34;existing-puppet-modules:d409599d847cdf6f6abf21fe7800a8cc&#34;&gt;Existing Puppet Modules&lt;/h2&gt;
+
+&lt;p&gt;As previously stated there are many existing puppet modules developed for use with Boxen. They work well and are very easy to use but none are very configurable &lt;em&gt;(with my experience)&lt;/em&gt; and their documentation is all very poor.&lt;/p&gt;
+
+&lt;p&gt;Many of the modules such as &lt;a href=&#34;https://github.com/boxen/puppet-mongodb&#34; title=&#34;Puppet MongoDB&#34;&gt;MongoDB&lt;/a&gt; and &lt;a href=&#34;https://github.com/boxen/puppet-redis&#34; title=&#34;Puppet Redis&#34;&gt;Redis&lt;/a&gt; are set-up to install on non-standard ports which is a little confusing initially. I understand why they have done so but to change these ports you need to fork or create your own module to make just a single change of port.&lt;/p&gt;
+
+&lt;p&gt;The architecture of Boxen lends itself to having multiple repos for each of your modules and using &lt;code&gt;include&lt;/code&gt; to pull them into your Boxen script. This works well when you have a lot of repositories available but when it is aimed at companies that will often have unique configuration requirements then this can lead to an excess of fairly simple repos being used up. &lt;em&gt;This may well be addressed with a better understanding of the Puppet language however.&lt;/em&gt;&lt;/p&gt;
+
+&lt;h3 id=&#34;final-thoughts:d409599d847cdf6f6abf21fe7800a8cc&#34;&gt;Final Thoughts&lt;/h3&gt;
+
+&lt;p&gt;My personal experience only highlights my lack of Puppet knowledge but even after my initial difficulties I was able to get all the required tools and software installed through Boxen. It dramatically reduces the set-up time for new development machines allowing new members to get started considerably faster than before.&lt;/p&gt;
+
+&lt;p&gt;I am now far more interested in learning Puppet to better make use of Boxen as I think it has massive potential. It would be an astonishing tool if/once it can handle a variety of Operating Systems as opposed to only Macs.&lt;/p&gt;
+
+&lt;p&gt;Even with my somewhat limited understanding, I was still left with a positive opinion. I think this could eventually be the go-to tool for systems teams in organisations and even now it makes the task of installing development dependencies much easier.&lt;/p&gt;
+
+&lt;p&gt;I suggest you give it a try.&lt;/p&gt;
+</description>
+    </item>
+    
+    <item>
+      <title>Laravel, The Good and The Awesome</title>
+      <link>http://www.darrencoxall.com/php/laravel-the-good-and-the-awesome/</link>
+      <pubDate>Thu, 17 Jan 2013 11:47:00 UTC</pubDate>
+      
+      <guid>http://www.darrencoxall.com/php/laravel-the-good-and-the-awesome/</guid>
+      <description>
+
+&lt;p&gt;PHP frameworks are all over the web currently with new ones cropping up more and more. We have the golden oldies with &lt;a href=&#34;http://framework.zend.com/&#34; title=&#34;Zend Framework&#34;&gt;Zend&lt;/a&gt;, &lt;a href=&#34;http://ellislab.com/codeigniter&#34; title=&#34;CodeIgniter&#34;&gt;CodeIgniter&lt;/a&gt; and &lt;a href=&#34;http://cakephp.org/&#34; title=&#34;CakePHP&#34;&gt;CakePHP&lt;/a&gt; but now we are also faced with the new kids on the block with &lt;a href=&#34;http://symfony.com/&#34; title=&#34;Symonfy&#34;&gt;Symfony&lt;/a&gt; and todays topic - &lt;a href=&#34;http://laravel.com/&#34; title=&#34;Laravel&#34;&gt;Laravel&lt;/a&gt;.&lt;/p&gt;
+
+&lt;p&gt;This is a bit of a strange first post for myself as a Ruby (and Rails) developer but &lt;em&gt;development is development is development&lt;/em&gt; and Laravel is a hot topic in PHP currently.&lt;/p&gt;
+
+&lt;p&gt;When I tried Laravel it was version 3.2.12 and there is lots in the pipeline so things may change.&lt;/p&gt;
+
+&lt;h2 id=&#34;so-what-s-special-about-it:9f0c9087672472401f4c146393b7e884&#34;&gt;So what&amp;rsquo;s special about it?&lt;/h2&gt;
+
+&lt;p&gt;I enjoy flexibility and so initially I had always quite liked the &lt;em&gt;separation of concerns&lt;/em&gt; found in the Zend library. Being able to pull parts of an app out and plug it in elsewhere is awesome. I have dabbled with other frameworks but this is often where I feel many fall down.&lt;/p&gt;
+
+&lt;p&gt;Being able to switch core pieces of an application is brilliant and having that sort of access to a well-written codebase can help teach you a lot about some of the smarter decisions made by the developers.&lt;/p&gt;
+
+&lt;p&gt;Laravel is well-written and very flexible. Nothing is done using magic and fairy dust just good design decisions and an aim to make the framework a solid collection of testable classes.&lt;/p&gt;
+
+&lt;p&gt;Unlike Zend I find that the way the pieces of the framework fit together is much more intuitive.&lt;/p&gt;
+
+&lt;h3 id=&#34;awesome-features-for-a-php-framework:9f0c9087672472401f4c146393b7e884&#34;&gt;Awesome features for a PHP framework&lt;/h3&gt;
+
+&lt;p&gt;Laravel was built to be cutting-edge. It uses the latest greatest stuff in PHP such as closures and namespaces. Doing away with older PHP versions is a perfect decision for new frameworks. The language is changing rapidly now making some good decisions (finally).&lt;/p&gt;
+
+&lt;p&gt;They have done away with the typical /controller/action/param routing style which I couldn&amp;rsquo;t recommend more. It&amp;rsquo;s a little more verbose because of this but it is an extra layer of control. I have always disagreed with the URL having to be a direct interface to your classes.&lt;/p&gt;
+
+&lt;p&gt;The framework comes with a built in templating system called blade which is easy to use. I question if layouts could be done in a more traditional way but hey it works.&lt;/p&gt;
+
+&lt;p&gt;Another feature I adore is the &lt;em&gt;Object Relational Mapper&lt;/em&gt;. It works well and many will tell you that an ORM is bloat and can slow down your code. I disagree. Yes the queries may be less optimised and may occur more than hand crafted SQL but the awesome-sauce is found in the development time saved when using one.&lt;/p&gt;
+
+&lt;h3 id=&#34;the-not-so-good:9f0c9087672472401f4c146393b7e884&#34;&gt;The not so good&lt;/h3&gt;
+
+&lt;p&gt;&lt;em&gt;Statics&lt;/em&gt;. A constantly &lt;a href=&#34;http://www.reddit.com/r/PHP/comments/10hank/avoid_static_methods_at_all_costs_testability/&#34; title=&#34;Debate on Reddit&#34;&gt;debated&lt;/a&gt; addition to PHP. I don&amp;rsquo;t think anyone disagrees with its inclusion but the use of them is often a discussion point amongst the modern PHP dev.&lt;/p&gt;
+
+&lt;p&gt;I don&amp;rsquo;t like the over use of static methods. Even when it comes to helpers I believe there is often an argument that they can be instances that are made available to the view.&lt;/p&gt;
+
+&lt;p&gt;Many of the examples also place code examples directly into the routes. &lt;strong&gt;Please don&amp;rsquo;t do this&lt;/strong&gt;. Controllers were built to handle this. It may be quicker to demonstrate the use of a class or two but it is not a decision that helps build a maintainable application.&lt;/p&gt;
+
+&lt;p&gt;&lt;em&gt;&lt;strong&gt;EDIT:&lt;/strong&gt; Since writing this I have been made aware that &lt;strong&gt;Laravel 4&lt;/strong&gt; leverages a &lt;a href=&#34;http://vimeo.com/53029232&#34; title=&#34;Laravel 4 IoC Container&#34;&gt;brilliant IoC Container&lt;/a&gt; which allows you to pass arguments to your application components of custom interfaces. You simply implement the interfaces and then tell your app what Class to use when that implementation is required. Now this is brilliant for creating testable, decoupled code.&lt;/em&gt;&lt;/p&gt;
+
+&lt;h3 id=&#34;why-use-it:9f0c9087672472401f4c146393b7e884&#34;&gt;Why use it?&lt;/h3&gt;
+
+&lt;p&gt;To be frank, Laravel is a strong choice for those looking for a PHP web framework. Its use of the modern language and flexibility make it one of the most customisable. Its design choices encourage re-use and a complete object orientated approach to PHP.&lt;/p&gt;
+</description>
+    </item>
+    
+  </channel>
+</rss>

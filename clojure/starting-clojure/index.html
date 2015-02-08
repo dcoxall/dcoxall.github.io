@@ -1,0 +1,139 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1">
+    <title>Starting Clojure &middot; Darren Coxall</title>
+    <base href="http://www.darrencoxall.com">
+    <link href="" rel="alternate" type="application/rss+xml" title="Darren Coxall">
+    <link href="/css/coxall.css" rel="stylesheet" type="text/css">
+    <link rel="stylesheet" href="//cdnjs.cloudflare.com/ajax/libs/highlight.js/8.4/styles/tomorrow-night-eighties.min.css">
+  </head>
+  <body lang="en">
+
+    
+    <header>
+      <a href="http://www.darrencoxall.com">
+        Home
+      </a>
+    </header>
+    
+
+
+    <main class="container">
+
+      <section class="row">
+        <article class="col-md-8 col-md-offset-2">
+          <h1>Starting Clojure</h1>
+          <div class="meta text-muted">
+            <p>
+              <time datetime="2014-07-02T20:44:08&#43;01:00">
+                Wed, Jul 2, 2014
+              </time>
+            </p>
+          </div>
+          
+
+<p>I&rsquo;ve been developing Ruby for years now and I love it but I&rsquo;m getting too comfortable with it. I know as well as any good developer that it isn&rsquo;t the best tool for every job. It&rsquo;s my job to be able to build the right software the right way and that should include the language selection. So, time to take the plunge and learn another language from scratch.</p>
+
+<h2 id="clojure-basics:9c0300697a63d0241134deb40fce7bdc">Clojure basics</h2>
+
+<p>I selected Clojure because I find it interesting. There is something about its syntax that draws me too it. I&rsquo;ve been enjoying Go recently thanks to how easily I can write multi-threaded applications and so Clojure is also a good choice with immutable data structures.</p>
+
+<p>So first place was to the <a href="http://clojure.org" title="Official Clojure Site">homepage</a>. I checked out a few of the tutorials and resources and settled on <a href="http://aphyr.com/posts/301-clojure-from-the-ground-up-welcome" title="Learning Clojure Guides">Clojure from the ground up</a>.</p>
+
+<p>Following the instructions I installed <a href="http://leiningen.org/">Leiningen</a>, which seems to be a <code>Bundle</code> like tool for the language which is a relief for me as it also handles the installation of Clojure itself as well.</p>
+
+<p>The inclusion of a REPL is a god-send to a developer like me learning as it means I can experiment quickly and learn the basics. I then also discovered <a href="http://www.lighttable.com/">Light Table</a> which includes a live REPL feature which is brilliant as it also allows you to indent the code making it much easier to read.</p>
+
+<p>Slowly I can see the patterns in the language such as <code>conj</code> for inserting additional elements into lists/sets/vectors but the fact they all work slightly differently is &lsquo;nice to know&rsquo; now rather than later.</p>
+
+<p>The first part that gets interesting (IMO) is the introduction of <code>lets</code> as this is where code re-use comes into play. Unfortunately the examples are lost on me a bit. My first question was how does let differ from just executing the code?</p>
+
+<pre><code>(let [hello &quot;&quot;] (str &quot;Hello, &quot; hello &quot;!&quot;))
+(hello &quot;Darren&quot;)
+; CompilerException java.lang.RuntimeException: Unable to resolve symbol: hello in this context, compiling:(NO_SOURCE_PATH:0:0)
+</code></pre>
+
+<p>So how is the above useful? Well let looks as though it provides a context (I could be wrong, if so please correct me). The guide introduces <code>fn</code> so adapting my previous test:</p>
+
+<pre><code>(let [hello (fn [name] (str &quot;Hello, &quot; name &quot;!&quot;))]
+  (hello &quot;Darren&quot;)) ; =&gt; &quot;Hello, Darren!&quot;
+</code></pre>
+
+<p>So that worked. After declaring a function I could re-use it within that particular expression. Moving on we are introduced to <code>def</code>.</p>
+
+<pre><code>(def hello (fn [name] (str &quot;Hello, &quot; name &quot;!&quot;)))
+(hello &quot;Darren&quot;) ; =&gt; &quot;Hello, Darren!&quot;
+</code></pre>
+
+<p>Now this feels closer to what I know (which can be further abbreviated using <code>defn</code>). I can now build re-usable components although this is the first introduction to something mutable within Clojure.</p>
+
+<p>So continuing on I learn about supporting different arities and an introduction to some of the recursion functions. Now these are only starts but with them I could adjust my method to support multiple names.</p>
+
+<pre><code>(defn hello
+     ([name] (if (coll? name)
+               (str &quot;Hello, &quot; (apply str (interpose &quot;, &quot; name)) &quot;!&quot;)
+               (str &quot;Hey &quot; name &quot;!&quot;))))
+
+
+(hello '(&quot;Darren&quot; &quot;Danika&quot;))
+</code></pre>
+
+<p>Or I could go a little step further&hellip;</p>
+
+<pre><code>(defn human-list
+  ([names]
+   (cond
+    (= (count names) 0) &quot;&quot;
+    (= (count names) 1) (peek names)
+    (&gt; (count names) 1) (str
+                         (apply str
+                                (interpose &quot;, &quot; (reverse (rest (reverse names)))))
+                                &quot; and &quot; (peek (reverse names))))))
+
+(human-list (list)) ; =&gt; &quot;&quot;
+(human-list '(&quot;A&quot;)) ; =&gt; &quot;A&quot;
+(human-list '(&quot;A&quot; &quot;B&quot;)) ; =&gt; &quot;A and B&quot;
+(human-list '(&quot;A&quot; &quot;B&quot; &quot;C&quot;)) ; =&gt; &quot;A, B and C&quot;
+
+(defn hello
+     ([name] (if (coll? name)
+               (str &quot;Hello &quot; (human-list name) &quot;!&quot;)
+               (str &quot;Hey &quot; name &quot;!&quot;))))
+
+
+(hello &quot;Darren&quot;) ; =&gt; &quot;Hey Darren!&quot;
+(hello '(&quot;Darren&quot;)) ; =&gt; &quot;Hello Darren!&quot;
+(hello '(&quot;Darren&quot; &quot;Danika&quot;)) ; =&gt; &quot;Hello Darren and Danika!&quot;
+(hello '(&quot;Darren&quot; &quot;Danika&quot; &quot;George&quot;)) ; =&gt; &quot;Hello Darren, Danika and George!&quot;
+</code></pre>
+
+<p>I&rsquo;m enjoying the language although it is a stretch for me to do these things in a functional way and trying to avoid variables. Clojure does seem to encourage small abstractions as it can get difficult to read and follow when methods get large. That may well be because I&rsquo;m new to the language and do things in strange ways but it&rsquo;s all part of the learning experience right?</p>
+
+        </article>
+      </section>
+
+      <footer class="row h-card">
+        <div class="avatar col-md-2 col-md-offset-2 hidden-sm">
+          <img class="u-photo img-circle img-responsive" alt="Darren Coxall" src="/img/avatar.jpeg">
+        </div>
+        <aside class="col-md-6">
+          <h4>About The Author</h4>
+          <p>
+            My name is <span class="p-name">Darren Coxall</span>. I am a software
+            engineer in <span class="p-region">London</span> working for
+            <a class="p-org" href="https://www.simplybusiness.co.uk">Simply
+            Business</a>. Currently my goto language is Ruby but I enjoy experimenting
+            with many languages.
+          </p>
+        </aside>
+      </footer>
+
+    </main>
+
+    <script src="/js/highlight.pack.js"></script>
+    <script src="/js/coxall.js"></script>
+
+  </body>
+</html>
+

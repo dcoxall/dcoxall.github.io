@@ -1,0 +1,192 @@
+<?xml version="1.0" encoding="utf-8" standalone="yes" ?>
+<rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom">
+  <channel>
+    <title>Clojures on Darren Coxall</title>
+    <link>http://www.darrencoxall.com/clojure/</link>
+    <description>Recent content in Clojures on Darren Coxall</description>
+    <generator>Hugo -- gohugo.io</generator>
+    
+    
+    
+    <lastBuildDate>Thu, 24 Jul 2014 21:59:27 BST</lastBuildDate>
+    <atom:link href="http://www.darrencoxall.com/clojure/index.xml" rel="self" type="application/rss+xml" />
+    
+    <item>
+      <title>Continuing Clojure</title>
+      <link>http://www.darrencoxall.com/clojure/continuing-clojure/</link>
+      <pubDate>Thu, 24 Jul 2014 21:59:27 BST</pubDate>
+      
+      <guid>http://www.darrencoxall.com/clojure/continuing-clojure/</guid>
+      <description>
+
+&lt;p&gt;After getting the hang of some of the basics in my last article (&lt;a href=&#34;http://www.darrencoxall.com/clojure/starting-clojure/&#34; title=&#34;Getting started with Clojure&#34;&gt;Starting Clojure&lt;/a&gt;) I decided it was time to throw myself into some &lt;em&gt;slightly&lt;/em&gt; more challenging puzzles. This post will be very code centric with some brief notes about what led me to my solutions/failures.&lt;/p&gt;
+
+&lt;p&gt;Still learning I turned to &lt;a href=&#34;http://www.4clojure.com&#34; title=&#34;Browser based Clojure challenges&#34;&gt;4Clojure&lt;/a&gt; which has some nice in browser challenges. I continued using LightPaper to experiment throughout as the lack of information can be annoying when starting.&lt;/p&gt;
+
+&lt;h3 id=&#34;problem-21-nth-element:24cbdd6cdf252104eabe5bc43cd6c3e2&#34;&gt;Problem 21: Nth Element&lt;/h3&gt;
+
+&lt;p&gt;This was the first problem my head refused to solve quickly. At first I considered using a for loop but that felt nasty and not particularly functional. Then the answer suddenly dawned on me (and it is particularly easy).&lt;/p&gt;
+
+&lt;pre&gt;&lt;code&gt;#((vec %1) %2) ; equivalent to (nth vec i)
+&lt;/code&gt;&lt;/pre&gt;
+
+&lt;h3 id=&#34;problem-22-count-a-sequence:24cbdd6cdf252104eabe5bc43cd6c3e2&#34;&gt;Problem 22: Count a sequence&lt;/h3&gt;
+
+&lt;p&gt;Now this time I liked the challenge and the first time I attempted it I had a google for some tips which helped immensely. The tip was that we are effectively going through a list to generate a single number. There&amp;rsquo;s a common functional way of doing that.&lt;/p&gt;
+
+&lt;pre&gt;&lt;code&gt;; reduce a seq but use 1 instead of the actual value
+; I had to set the initial value to 0 to prevent inc \H
+(fn [x] (reduce (fn [total s] (inc total)) 0 (seq x)))
+&lt;/code&gt;&lt;/pre&gt;
+
+&lt;h3 id=&#34;problem-23-reverse-a-sequence:24cbdd6cdf252104eabe5bc43cd6c3e2&#34;&gt;Problem 23: Reverse a sequence&lt;/h3&gt;
+
+&lt;p&gt;This challenge I recognised I could use the difference between the different collection types and iteratively build a list using each of the elements in the set.&lt;/p&gt;
+
+&lt;pre&gt;&lt;code&gt;#(reduce conj &#39;() %)
+; at this point I decided reduce is my friend
+&lt;/code&gt;&lt;/pre&gt;
+
+&lt;h3 id=&#34;problem-26-fibonacci:24cbdd6cdf252104eabe5bc43cd6c3e2&#34;&gt;Problem 26: Fibonacci&lt;/h3&gt;
+
+&lt;p&gt;So this should be easy (and is when you know how) but it took me a while and it is solved in the official docs. I did pretty much copy it but I did make sure to learn how it worked and so please do the same.&lt;/p&gt;
+
+&lt;pre&gt;&lt;code&gt;#(take %
+  ;; take the first n results
+       (map first
+        ;; take the first value of each fib pair
+            (iterate
+            ;; infinitely add each result and the next number
+             (fn
+               [[a b]]
+               [b (+ a b)])
+             [1 1])))
+              ;; seed the sequence with [1 1] (+ 1 1)
+&lt;/code&gt;&lt;/pre&gt;
+
+&lt;h3 id=&#34;problem-28-flatten-a-sequence:24cbdd6cdf252104eabe5bc43cd6c3e2&#34;&gt;Problem 28: Flatten a Sequence&lt;/h3&gt;
+
+&lt;p&gt;Time to write our own &lt;code&gt;flatten&lt;/code&gt;. I failed miserably here and cheated but the &lt;a href=&#34;http://stackoverflow.com/questions/16155597/clojure-what-is-wrong-with-my-implementation-of-flatten&#34;&gt;solution&lt;/a&gt; my Google fu found did teach me some of the core functions I hadn&amp;rsquo;t yet learnt and how they can be used.&lt;/p&gt;
+
+&lt;pre&gt;&lt;code&gt;;; loop through the list applying concat
+;; but recursive so we convert the elements
+;; in the list to a concat&#39;ed list
+(fn x
+  [ls]
+   (if (sequential? ls)
+     (mapcat x ls)
+     (list ls)))
+&lt;/code&gt;&lt;/pre&gt;
+
+&lt;h3 id=&#34;problem-39-interleave-two-sequences:24cbdd6cdf252104eabe5bc43cd6c3e2&#34;&gt;Problem 39: Interleave Two Sequences&lt;/h3&gt;
+
+&lt;p&gt;Without using the &lt;code&gt;interleave&lt;/code&gt; method I was reminded of something I read about &lt;code&gt;map&lt;/code&gt; which would allow me to combine the results of multiple sequences. I ended up using &lt;code&gt;map&lt;/code&gt; and &lt;code&gt;flatten&lt;/code&gt; to compress the final output. I&amp;rsquo;m sure there are tidier ways of doing this that also support sequences of sequences.&lt;/p&gt;
+
+&lt;pre&gt;&lt;code&gt;(fn [a b] (flatten (map (fn [x y] (list x y)) a b)))
+&lt;/code&gt;&lt;/pre&gt;
+
+&lt;h2 id=&#34;enough:24cbdd6cdf252104eabe5bc43cd6c3e2&#34;&gt;Enough?&lt;/h2&gt;
+
+&lt;p&gt;So at this point in all honesty my attention was wavering. I had started to look into actual applications of the language including how best to test them.&lt;/p&gt;
+
+&lt;p&gt;I hope this hasn&amp;rsquo;t been too tedious to read but often seeing solutions can help cement how flexible Clojure is and how all the core building blocks can fit together to solve very different problems.&lt;/p&gt;
+
+&lt;p&gt;If you have followed along and have gotten a better understanding of the language now is a good point to just dive in yourself. Keep the docs at hand and make a start at writing a trivial application.&lt;/p&gt;
+
+&lt;p&gt;Any future articles on Clojure will likely be focused on specific libraries (I&amp;rsquo;m particularly interested in exploring the async features).&lt;/p&gt;
+
+&lt;p&gt;Once again my solutions are just that, mine. I&amp;rsquo;m new to the language and so if you see something I could do better then comment as it is super helpful for me to see the &lt;em&gt;better&lt;/em&gt; ways of achieving results.&lt;/p&gt;
+
+&lt;p&gt;Thanks for reading! I hope it helped.&lt;/p&gt;
+</description>
+    </item>
+    
+    <item>
+      <title>Starting Clojure</title>
+      <link>http://www.darrencoxall.com/clojure/starting-clojure/</link>
+      <pubDate>Wed, 02 Jul 2014 20:44:08 BST</pubDate>
+      
+      <guid>http://www.darrencoxall.com/clojure/starting-clojure/</guid>
+      <description>
+
+&lt;p&gt;I&amp;rsquo;ve been developing Ruby for years now and I love it but I&amp;rsquo;m getting too comfortable with it. I know as well as any good developer that it isn&amp;rsquo;t the best tool for every job. It&amp;rsquo;s my job to be able to build the right software the right way and that should include the language selection. So, time to take the plunge and learn another language from scratch.&lt;/p&gt;
+
+&lt;h2 id=&#34;clojure-basics:9c0300697a63d0241134deb40fce7bdc&#34;&gt;Clojure basics&lt;/h2&gt;
+
+&lt;p&gt;I selected Clojure because I find it interesting. There is something about its syntax that draws me too it. I&amp;rsquo;ve been enjoying Go recently thanks to how easily I can write multi-threaded applications and so Clojure is also a good choice with immutable data structures.&lt;/p&gt;
+
+&lt;p&gt;So first place was to the &lt;a href=&#34;http://clojure.org&#34; title=&#34;Official Clojure Site&#34;&gt;homepage&lt;/a&gt;. I checked out a few of the tutorials and resources and settled on &lt;a href=&#34;http://aphyr.com/posts/301-clojure-from-the-ground-up-welcome&#34; title=&#34;Learning Clojure Guides&#34;&gt;Clojure from the ground up&lt;/a&gt;.&lt;/p&gt;
+
+&lt;p&gt;Following the instructions I installed &lt;a href=&#34;http://leiningen.org/&#34;&gt;Leiningen&lt;/a&gt;, which seems to be a &lt;code&gt;Bundle&lt;/code&gt; like tool for the language which is a relief for me as it also handles the installation of Clojure itself as well.&lt;/p&gt;
+
+&lt;p&gt;The inclusion of a REPL is a god-send to a developer like me learning as it means I can experiment quickly and learn the basics. I then also discovered &lt;a href=&#34;http://www.lighttable.com/&#34;&gt;Light Table&lt;/a&gt; which includes a live REPL feature which is brilliant as it also allows you to indent the code making it much easier to read.&lt;/p&gt;
+
+&lt;p&gt;Slowly I can see the patterns in the language such as &lt;code&gt;conj&lt;/code&gt; for inserting additional elements into lists/sets/vectors but the fact they all work slightly differently is &amp;lsquo;nice to know&amp;rsquo; now rather than later.&lt;/p&gt;
+
+&lt;p&gt;The first part that gets interesting (IMO) is the introduction of &lt;code&gt;lets&lt;/code&gt; as this is where code re-use comes into play. Unfortunately the examples are lost on me a bit. My first question was how does let differ from just executing the code?&lt;/p&gt;
+
+&lt;pre&gt;&lt;code&gt;(let [hello &amp;quot;&amp;quot;] (str &amp;quot;Hello, &amp;quot; hello &amp;quot;!&amp;quot;))
+(hello &amp;quot;Darren&amp;quot;)
+; CompilerException java.lang.RuntimeException: Unable to resolve symbol: hello in this context, compiling:(NO_SOURCE_PATH:0:0)
+&lt;/code&gt;&lt;/pre&gt;
+
+&lt;p&gt;So how is the above useful? Well let looks as though it provides a context (I could be wrong, if so please correct me). The guide introduces &lt;code&gt;fn&lt;/code&gt; so adapting my previous test:&lt;/p&gt;
+
+&lt;pre&gt;&lt;code&gt;(let [hello (fn [name] (str &amp;quot;Hello, &amp;quot; name &amp;quot;!&amp;quot;))]
+  (hello &amp;quot;Darren&amp;quot;)) ; =&amp;gt; &amp;quot;Hello, Darren!&amp;quot;
+&lt;/code&gt;&lt;/pre&gt;
+
+&lt;p&gt;So that worked. After declaring a function I could re-use it within that particular expression. Moving on we are introduced to &lt;code&gt;def&lt;/code&gt;.&lt;/p&gt;
+
+&lt;pre&gt;&lt;code&gt;(def hello (fn [name] (str &amp;quot;Hello, &amp;quot; name &amp;quot;!&amp;quot;)))
+(hello &amp;quot;Darren&amp;quot;) ; =&amp;gt; &amp;quot;Hello, Darren!&amp;quot;
+&lt;/code&gt;&lt;/pre&gt;
+
+&lt;p&gt;Now this feels closer to what I know (which can be further abbreviated using &lt;code&gt;defn&lt;/code&gt;). I can now build re-usable components although this is the first introduction to something mutable within Clojure.&lt;/p&gt;
+
+&lt;p&gt;So continuing on I learn about supporting different arities and an introduction to some of the recursion functions. Now these are only starts but with them I could adjust my method to support multiple names.&lt;/p&gt;
+
+&lt;pre&gt;&lt;code&gt;(defn hello
+     ([name] (if (coll? name)
+               (str &amp;quot;Hello, &amp;quot; (apply str (interpose &amp;quot;, &amp;quot; name)) &amp;quot;!&amp;quot;)
+               (str &amp;quot;Hey &amp;quot; name &amp;quot;!&amp;quot;))))
+
+
+(hello &#39;(&amp;quot;Darren&amp;quot; &amp;quot;Danika&amp;quot;))
+&lt;/code&gt;&lt;/pre&gt;
+
+&lt;p&gt;Or I could go a little step further&amp;hellip;&lt;/p&gt;
+
+&lt;pre&gt;&lt;code&gt;(defn human-list
+  ([names]
+   (cond
+    (= (count names) 0) &amp;quot;&amp;quot;
+    (= (count names) 1) (peek names)
+    (&amp;gt; (count names) 1) (str
+                         (apply str
+                                (interpose &amp;quot;, &amp;quot; (reverse (rest (reverse names)))))
+                                &amp;quot; and &amp;quot; (peek (reverse names))))))
+
+(human-list (list)) ; =&amp;gt; &amp;quot;&amp;quot;
+(human-list &#39;(&amp;quot;A&amp;quot;)) ; =&amp;gt; &amp;quot;A&amp;quot;
+(human-list &#39;(&amp;quot;A&amp;quot; &amp;quot;B&amp;quot;)) ; =&amp;gt; &amp;quot;A and B&amp;quot;
+(human-list &#39;(&amp;quot;A&amp;quot; &amp;quot;B&amp;quot; &amp;quot;C&amp;quot;)) ; =&amp;gt; &amp;quot;A, B and C&amp;quot;
+
+(defn hello
+     ([name] (if (coll? name)
+               (str &amp;quot;Hello &amp;quot; (human-list name) &amp;quot;!&amp;quot;)
+               (str &amp;quot;Hey &amp;quot; name &amp;quot;!&amp;quot;))))
+
+
+(hello &amp;quot;Darren&amp;quot;) ; =&amp;gt; &amp;quot;Hey Darren!&amp;quot;
+(hello &#39;(&amp;quot;Darren&amp;quot;)) ; =&amp;gt; &amp;quot;Hello Darren!&amp;quot;
+(hello &#39;(&amp;quot;Darren&amp;quot; &amp;quot;Danika&amp;quot;)) ; =&amp;gt; &amp;quot;Hello Darren and Danika!&amp;quot;
+(hello &#39;(&amp;quot;Darren&amp;quot; &amp;quot;Danika&amp;quot; &amp;quot;George&amp;quot;)) ; =&amp;gt; &amp;quot;Hello Darren, Danika and George!&amp;quot;
+&lt;/code&gt;&lt;/pre&gt;
+
+&lt;p&gt;I&amp;rsquo;m enjoying the language although it is a stretch for me to do these things in a functional way and trying to avoid variables. Clojure does seem to encourage small abstractions as it can get difficult to read and follow when methods get large. That may well be because I&amp;rsquo;m new to the language and do things in strange ways but it&amp;rsquo;s all part of the learning experience right?&lt;/p&gt;
+</description>
+    </item>
+    
+  </channel>
+</rss>

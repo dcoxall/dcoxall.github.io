@@ -1,0 +1,325 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1">
+    <title>Refactoring Walkthrough &middot; Darren Coxall</title>
+    <base href="http://www.darrencoxall.com">
+    <link href="" rel="alternate" type="application/rss+xml" title="Darren Coxall">
+    <link href="/css/coxall.css" rel="stylesheet" type="text/css">
+    <link rel="stylesheet" href="//cdnjs.cloudflare.com/ajax/libs/highlight.js/8.4/styles/tomorrow-night-eighties.min.css">
+  </head>
+  <body lang="en">
+
+    
+    <header>
+      <a href="http://www.darrencoxall.com">
+        Home
+      </a>
+    </header>
+    
+
+
+    <main class="container">
+
+      <section class="row">
+        <article class="col-md-8 col-md-offset-2">
+          <h1>Refactoring Walkthrough</h1>
+          <div class="meta text-muted">
+            <p>
+              <time datetime="2015-01-01T10:00:00Z">
+                Thu, Jan 1, 2015
+              </time>
+            </p>
+          </div>
+          <p>Refactoring is the process of restructuring, re-architecting and modifying
+existing code without affecting the output of the code. The aim is to reduce
+complexity simultaneously improving the ability to modify the code at a later
+date. I want to walk you through my own refactoring process with a real world
+example.</p>
+
+<p>We will be refactoring <a href="https://github.com/shtirlic/sinatra-jsonp">shtirlic/sinatra-jsonp</a>. This is a small
+sinatra extension that adds support for older browsers when returning json as
+it provides callback function support. I have selected this as I have used it in
+a project and I know that the main bulk of the functionality is implemented in
+a rather complex method making it a prime candidate for refactoring.</p>
+
+<p>So to begin with I am going to fork the repository so my starting point is
+<a href="https://github.com/dcoxall/sinatra-jsonp/tree/7436fd1fa38d6654560fa3e4af52c734dd818073"><code>7436fd1fa3</code></a>. If I now clone this locally I can start setting up my
+baselines and checking the tests.</p>
+
+<p><em>Tests are perhaps the single most important thing to have in place when
+refactoring. Without them it is extremely difficult to assert that the code is
+producing the same results both before and after the refactoring.</em></p>
+
+<pre><code>$ git clone git@github.com:dcoxall/sinatra-jsonp.git
+$ cd sinatra-jsonp
+$ bundle install
+$ bundle exec rake
+</code></pre>
+
+<p>You will see that I installed any dependencies and then ran the default rake
+task. In most ruby programs this is the standard way of running the complete
+test suite. In this case it was right and all the tests passed but there were
+some deprecations.</p>
+
+<blockquote>
+<p>stdlib is deprecated. Use :test_unit or :minitest instead</p>
+</blockquote>
+
+<p>Now this is a good place to start. If I can fix any issues like this now I will
+have a nicer environment to work with later so at this point I will create a
+branch.</p>
+
+<pre><code>$ git checkout -b refactor
+</code></pre>
+
+<p>With a branch created I can start making my changes. The offending line causing
+the deprecation warning is in <code>spec/spec_helper.rb</code> so my first action was to
+remove it and see what effect it had on the tests by running them again.</p>
+
+<p>Low-and-behold everything passed but without any warnings. Awesome. So I can
+commit this change.</p>
+
+<pre><code>$ git add spec/spec_helper.rb
+$ git ci -m &quot;Fix deprecated use of stdlib&quot;
+</code></pre>
+
+<p>Now I want to introduce a tool I like to use called <a href="https://github.com/bbatsov/rubocop">rubocop</a> which
+can analyse ruby code to check that it follows particular conventions but more
+importantly in this case it also includes metrics that report on estimated
+complexity and an ABC rating (Assignments, branching and conditions) where a
+higher number often indicates complex or difficult to follow code. This will
+provide me a baseline and I can work on reducing these metrics providing me a
+tangible target.</p>
+
+<pre><code>$ gem install rubocop
+$ rubocop -f s --only \
+&gt; Metrics/AbcSize,Metrics/MethodLength,Metrics/PerceivedComplexity
+</code></pre>
+
+<p>In the above command I limit rubocop to look only for ABC rating, method length
+and the perceived complexity. These will be the metrics I want to improve. The
+result is the following:</p>
+
+<pre><code>== lib/sinatra/jsonp.rb ==
+C:  6:  5: Assignment Branch Condition size for jsonp is too high. [19.34/15]
+C:  6:  5: Method has too many lines. [19/10]
+C:  6:  5: Perceived complexity for jsonp is too high. [8/7]
+</code></pre>
+
+<p>Now I have a starting point and passing tests. It&rsquo;s time to look at the code.
+All the reported issues are in <a href="https://github.com/dcoxall/sinatra-jsonp/blob/7436fd1fa38d6654560fa3e4af52c734dd818073/lib/sinatra/jsonp.rb"><code>lib/sinatra/jsonp.rb</code></a> which is where all
+the main logic is kept.</p>
+
+<p>My first instinct is to go through the method and document what it is actualy
+doing. I find it much easier to re-structure the code once I understand what
+functions it is serving. It is then a case of moving pieces to their own
+methods.</p>
+
+<pre><code>def jsonp(*args)
+  # requires 1 or more arguments
+  if args.size &gt; 0
+    # The first argument is the object to serialize
+    data = MultiJson.dump(
+      args[0],
+      :pretty =&gt; settings.respond_to?(:json_pretty) &amp;&amp; settings.json_pretty
+    )
+    # If we have another argument it is the callback function name
+    if args.size &gt; 1
+      callback = args[1].to_s
+    else
+      # If not then determine the callback based on the following parameters
+      ['callback','jscallback','jsonp','jsoncallback'].each do |x|
+        callback = params.delete(x) unless callback
+      end
+    end
+    # If we have a callback perform some basic sanitization and set the
+    # response content type and the eventual response body
+    if callback
+      callback.tr!('^a-zA-Z0-9_$\.', '')
+      content_type :js
+      response = &quot;#{callback}(#{data})&quot;
+    else
+      # If no callback then set the response content type to json and return
+      # the serialized data
+      content_type :json
+      response = data
+    end
+    response
+  end
+end
+</code></pre>
+
+<p>With this view I am going to work top-down and so first is to implement a guard
+condition by returning early if we have in-sufficient arguments. I then decide
+that I can make the <code>pretty</code> flag into a different method.</p>
+
+<pre><code># requires 1 or more arguments
+return if args.size &lt; 1
+
+# The first argument is the object to serialize
+data = MultiJson.dump(args[0], :pretty =&gt; display_pretty_json?)
+
+# ...
+
+private
+
+def display_pretty_json?
+  !!(settings.respond_to?(:json_pretty) &amp;&amp; settings.json_pretty)
+end
+</code></pre>
+
+<p>Now running the tests and rubocop again reveal that everything is still passing
+but I have already corrected the perceived complexity of the method as well as
+improved the ABC score (by 3.03).</p>
+
+<pre><code>== lib/sinatra/jsonp.rb ==
+C:  6:  5: Assignment Branch Condition size for jsonp is too high. [16.31/15]
+C:  6:  5: Method has too many lines. [18/10]
+</code></pre>
+
+<p>Time to commit these changes and then tackle the callback calculation.</p>
+
+<pre><code>$ git add lib/sinatra/jsonp.rb
+$ git commit -m &quot;Introduce guard condition and extract setting checks&quot;
+</code></pre>
+
+<p>I move the logic for determining the callback name into a new method and I also
+move the list of parameter keys to check into a constant. This leaves us with
+the following&hellip;</p>
+
+<pre><code>CALLBACK_PARAMS = %w( callback jscallback jsonp jsoncallback ).freeze
+
+def jsonp(*args)
+  return if args.size &lt; 1
+
+  data = MultiJson.dump(args[0], :pretty =&gt; display_pretty_json?)
+  callback = extract_callback_name(args[1])
+
+  # If we have a callback perform some basic sanitization and set the
+  # response content type and the eventual response body
+  if callback
+    callback.tr!('^a-zA-Z0-9_$\.', '')
+    content_type :js
+    response = &quot;#{callback}(#{data})&quot;
+  else
+    # If no callback then set the response content type to json and return
+    # the serialized data
+    content_type :json
+    response = data
+  end
+  response
+end
+alias JSONP jsonp
+
+private
+
+def display_pretty_json?
+  !!(settings.respond_to?(:json_pretty) &amp;&amp; settings.json_pretty)
+end
+
+def extract_callback_name(name = nil)
+  if name.nil?
+    callback = nil
+    CALLBACK_PARAMS.each do |key|
+      callback = params.delete(key) unless callback
+    end
+    callback ? callback.to_s : nil
+  else
+    name.to_s
+  end
+end
+</code></pre>
+
+<p>Again running the tests and rubocop tell me that everything is still working
+and I have now also corrected the ABC score to an acceptable level. The only
+metric that rubocop is complaining about now is the method length. Once again,
+it&rsquo;s time to commit our changes and move onto finalizing the response.</p>
+
+<pre><code>$ git add lib/sinatra/jsonp.rb
+$ git commit -m &quot;Callback name extraction moved to new method&quot;
+</code></pre>
+
+<p>Now for this next refactor I don&rsquo;t want the method to have any side-effects and
+so I don&rsquo;t want the new method to call <code>content_type</code> explicitly but instead
+return both the response body and the correct content type which the main method
+can use.</p>
+
+<p>The result of this is shown below</p>
+
+<pre><code>CALLBACK_PARAMS = %w( callback jscallback jsonp jsoncallback ).freeze
+
+def jsonp(*args)
+  return if args.size &lt; 1
+  data = MultiJson.dump(args[0], :pretty =&gt; display_pretty_json?)
+  callback = extract_callback_name(args[1])
+  type, response = determine_response(data, callback)
+  content_type(type)
+  response
+end
+alias JSONP jsonp
+
+private
+
+def determine_response(data, callback = nil)
+  return [:json, data] if callback.nil?
+  callback.tr!('^a-zA-Z0-9_$\.', '')
+  [:js, format(&quot;%s(%s)&quot;, callback, data)]
+end
+
+def display_pretty_json?
+  !!(settings.respond_to?(:json_pretty) &amp;&amp; settings.json_pretty)
+end
+
+def extract_callback_name(name = nil)
+  if name.nil?
+    callback = nil
+    CALLBACK_PARAMS.each do |key|
+      callback = params.delete(key) unless callback
+    end
+    callback ? callback.to_s : nil
+  else
+    name.to_s
+  end
+end
+</code></pre>
+
+<p>Running the tests and rubocop now reveal all tests continue to pass and rubocop
+has nothing to complain about! I can commit this and create a pull request.</p>
+
+<p>I&rsquo;ve demonstrated how I like to refactor with the aim of making the code easier
+to work with. What once was a large single method is now several smaller more
+succinct methods. This also provides an additional benefit in that the method
+names now also document the behaviour of the code making it easier for others to
+read and understand.</p>
+
+<p>Thank you for reading. You can see the <a href="https://github.com/shtirlic/sinatra-jsonp/pull/6">final pull request here</a>. Now go out
+and improve some code!</p>
+
+        </article>
+      </section>
+
+      <footer class="row h-card">
+        <div class="avatar col-md-2 col-md-offset-2 hidden-sm">
+          <img class="u-photo img-circle img-responsive" alt="Darren Coxall" src="/img/avatar.jpeg">
+        </div>
+        <aside class="col-md-6">
+          <h4>About The Author</h4>
+          <p>
+            My name is <span class="p-name">Darren Coxall</span>. I am a software
+            engineer in <span class="p-region">London</span> working for
+            <a class="p-org" href="https://www.simplybusiness.co.uk">Simply
+            Business</a>. Currently my goto language is Ruby but I enjoy experimenting
+            with many languages.
+          </p>
+        </aside>
+      </footer>
+
+    </main>
+
+    <script src="/js/highlight.pack.js"></script>
+    <script src="/js/coxall.js"></script>
+
+  </body>
+</html>
+

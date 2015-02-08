@@ -1,0 +1,222 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1">
+    <title>Executing Commands in Go &middot; Darren Coxall</title>
+    <base href="http://www.darrencoxall.com">
+    <link href="" rel="alternate" type="application/rss+xml" title="Darren Coxall">
+    <link href="/css/coxall.css" rel="stylesheet" type="text/css">
+    <link rel="stylesheet" href="//cdnjs.cloudflare.com/ajax/libs/highlight.js/8.4/styles/tomorrow-night-eighties.min.css">
+  </head>
+  <body lang="en">
+
+    
+    <header>
+      <a href="http://www.darrencoxall.com">
+        Home
+      </a>
+    </header>
+    
+
+
+    <main class="container">
+
+      <section class="row">
+        <article class="col-md-8 col-md-offset-2">
+          <h1>Executing Commands In Go</h1>
+          <div class="meta text-muted">
+            <p>
+              <time datetime="2014-08-18T09:00:00Z">
+                Mon, Aug 18, 2014
+              </time>
+            </p>
+          </div>
+          
+
+<p>The ability to execute external commands from within an application is something I often feel is a bit <em>hackish</em> and I haven&rsquo;t yet discovered a language that handles it as well as I would like. That was until I learned to love how Go tackles the challenge. This post will show you how to make the most of <code>os/exec</code>.</p>
+
+<p>I tend to feel that there are three different types of command execution within applications.</p>
+
+<ul>
+<li>Plain output. For when you always expect the command to execute but all you want from it is the output.</li>
+<li>Exit codes. These perform some cleanup, setup or check and you want to discard any output but assert the exit code.</li>
+<li>Long running processes. This case is rarer but there are times when I want to spawn sub-processes. Maybe even starting up another server to proxy to for instance.</li>
+</ul>
+
+<p>So how do I handle these in Go? The magic all comes from the wonderful <a href="http://godoc.org/os/exec" title="GoDoc: os/exec">os/exec</a> which is part of the Go standard library. Using this library, commands become a first class citizen within your application.</p>
+
+<p><em>For all examples I am only going to include the primary logic but I will keep a link to a full copy in the Go Playgroud. The copies won&rsquo;t execute within the Playground due to the restrictions Google have in place but they should run fine locally.</em></p>
+
+<p>I have defined the following functions to keep the examples short:</p>
+
+<pre><code>func printCommand(cmd *exec.Cmd) {
+  fmt.Printf(&quot;==&gt; Executing: %s\n&quot;, strings.Join(cmd.Args, &quot; &quot;))
+}
+
+func printError(err error) {
+  if err != nil {
+    os.Stderr.WriteString(fmt.Sprintf(&quot;==&gt; Error: %s\n&quot;, err.Error()))
+  }
+}
+
+func printOutput(outs []byte) {
+  if len(outs) &gt; 0 {
+    fmt.Printf(&quot;==&gt; Output: %s\n&quot;, string(outs))
+  }
+}
+</code></pre>
+
+<h2 id="collecting-output:b15a4def803f966fde627651ff8cb67a">Collecting output</h2>
+
+<p>The first and most obvious use is to collect output from an external command. An easy way to do that is to use the <code>CombinedOutput</code> function.</p>
+
+<pre><code>// Create an *exec.Cmd
+cmd := exec.Command(&quot;echo&quot;, &quot;Called from Go!&quot;)
+
+// Combine stdout and stderr
+printCommand(cmd)
+output, err := cmd.CombinedOutput()
+printError(err)
+printOutput(output) // =&gt; go version go1.3 darwin/amd64
+
+// http://play.golang.org/p/-7PWDpt6zS
+</code></pre>
+
+<p>This works well if you also want to check for any error messages output but if you want finer control over the output of a command then we can route it into different buffers giving us control over both standard output and standard error.</p>
+
+<pre><code>// Create an *exec.Cmd
+cmd := exec.Command(&quot;go&quot;, &quot;version&quot;)
+
+// Stdout buffer
+cmdOutput := &amp;bytes.Buffer{}
+// Attach buffer to command
+cmd.Stdout = cmdOutput
+
+// Execute command
+printCommand(cmd)
+err := cmd.Run() // will wait for command to return
+printError(err)
+// Only output the commands stdout
+printOutput(cmdOutput.Bytes()) // =&gt; go version go1.3 darwin/amd64
+
+// http://play.golang.org/p/_6xke11GMp
+</code></pre>
+
+<p>In the above example we manually connect our own buffer to capture the commands stdout stream. We can do the same for stderr and even stdin so long as it adheres to the <code>io.Reader</code> interface.</p>
+
+<p>So far we&rsquo;ve seen how easy it is to capture command output across multiple file descriptors. It&rsquo;s more verbose then other languages but it gives us lots of flexibility.</p>
+
+<h2 id="exit-codes:b15a4def803f966fde627651ff8cb67a">Exit codes</h2>
+
+<p>Retrieving the exit code of a command is easy with Go. You may have already noticed in the previous examples that when executing the command Go can return an error. These errors occur if there is an issue with IO or of the command doesn&rsquo;t return a successful exit code (0).</p>
+
+<p>The following code will output the exit code of a command.</p>
+
+<pre><code>cmd := exec.Command(&quot;ls&quot;, &quot;/imaginary/directory&quot;)
+var waitStatus syscall.WaitStatus
+if err := cmd.Run(); err != nil {
+  printError(err)
+  // Did the command fail because of an unsuccessful exit code
+  if exitError, ok := err.(*exec.ExitError); ok {
+    waitStatus = exitError.Sys().(syscall.WaitStatus)
+    printOutput([]byte(fmt.Sprintf(&quot;%d&quot;, waitStatus.ExitStatus())))
+  }
+} else {
+  // Command was successful
+  waitStatus = cmd.ProcessState.Sys().(syscall.WaitStatus)
+  printOutput([]byte(fmt.Sprintf(&quot;%d&quot;, waitStatus.ExitStatus())))
+}
+
+// http://play.golang.org/p/m2A17UWSOL
+</code></pre>
+
+<p>The above code looks more complicated but in traditional Go fashion it handles many situations.</p>
+
+<ul>
+<li>Create an <code>*exec.Cmd</code></li>
+<li>Execute and test for any errors</li>
+<li>If we received an error then check it was because of the commands exit</li>
+<li>If no error then check the commands <code>*os.ProcessState</code> for the exit code (pretty much guaranteed to be 0 but in here for completion)</li>
+</ul>
+
+<p>A caveat to take note of is that if Go failed to locate the command in your <code>$PATH</code> then it won&rsquo;t ever execute the command and thus you will have no exit code. This is why it is important to assert the type of error returned.</p>
+
+<h2 id="long-running-processes:b15a4def803f966fde627651ff8cb67a">Long running processes</h2>
+
+<p>All our above examples are synchronous. They wait for the command to complete before continuing the execution of our application. If we wanted to execute a long running task however it is likely that we want it to happen asynchronously. Once again this is trivially easy.</p>
+
+<pre><code>cmd := exec.Command(&quot;cat&quot;, &quot;/dev/random&quot;)
+randomBytes := &amp;bytes.Buffer{}
+cmd.Stdout = randomBytes
+
+// Start command asynchronously
+err := cmd.Start()
+printError(err)
+
+// Create a ticker that outputs elapsed time
+ticker := time.NewTicker(time.Second)
+go func(ticker *time.Ticker) {
+  now := time.Now()
+  for _ = range ticker.C {
+    printOutput(
+      []byte(fmt.Sprintf(&quot;%s&quot;, time.Since(now))),
+    )
+  }
+}(ticker)
+
+// Create a timer that will kill the process
+timer := time.NewTimer(time.Second * 4)
+go func(timer *time.Timer, ticker *time.Ticker, cmd *exec.Cmd) {
+  for _ = range timer.C {
+    err := cmd.Process.Signal(os.Kill)
+    printError(err)
+    ticker.Stop()
+  }
+}(timer, ticker, cmd)
+
+// Only proceed once the process has finished
+cmd.Wait()
+printOutput(
+  []byte(fmt.Sprintf(&quot;%d bytes generated!&quot;, len(randomBytes.Bytes()))),
+)
+
+// http://play.golang.org/p/tQRk1xJOqW
+</code></pre>
+
+<p>Now that was a lot more work but it all makes good sense. I started a computationaly difficult task of generating a collection of random bytes. Next I start that command asynchronously and then begin a ticker to show the elapsed time and a timer to kill the process after 4 seconds. Once the process has been killed then we output the total number of generated bytes.</p>
+
+<p><em>A small disclaimer. I don&rsquo;t claim that this is the best way to do this but it demonstrates asynchronous commands and the ability to send signals to the process within our application.</em></p>
+
+<h2 id="closing-comments:b15a4def803f966fde627651ff8cb67a">Closing comments</h2>
+
+<p>This has been quite a technical post but we have covered lots of ground with the flexibility of <code>os/exec</code>. I have tested all the examples on my Mac using go1.3. Any suggestions/improvements are welcomed.</p>
+
+<p>I hope I&rsquo;ve been able to get across why I&rsquo;m beginning to really enjoy working with Go.</p>
+
+        </article>
+      </section>
+
+      <footer class="row h-card">
+        <div class="avatar col-md-2 col-md-offset-2 hidden-sm">
+          <img class="u-photo img-circle img-responsive" alt="Darren Coxall" src="/img/avatar.jpeg">
+        </div>
+        <aside class="col-md-6">
+          <h4>About The Author</h4>
+          <p>
+            My name is <span class="p-name">Darren Coxall</span>. I am a software
+            engineer in <span class="p-region">London</span> working for
+            <a class="p-org" href="https://www.simplybusiness.co.uk">Simply
+            Business</a>. Currently my goto language is Ruby but I enjoy experimenting
+            with many languages.
+          </p>
+        </aside>
+      </footer>
+
+    </main>
+
+    <script src="/js/highlight.pack.js"></script>
+    <script src="/js/coxall.js"></script>
+
+  </body>
+</html>
+

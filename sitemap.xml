@@ -1,0 +1,55 @@
+<?xml version="1.0" encoding="utf-8" standalone="yes" ?>
+<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
+  
+  <url>
+    <loc>http://www.darrencoxall.com/</loc>
+    <lastmod>2015-01-01T10:00:00+00:00</lastmod>
+    <priority>0</priority>
+  </url>
+  
+  <url>
+    <loc>http://www.darrencoxall.com/ruby/refactoring-walkthrough/</loc>
+    <lastmod>2015-01-01T10:00:00+00:00</lastmod>
+  </url>
+  
+  <url>
+    <loc>http://www.darrencoxall.com/golang/executing-commands-in-go/</loc>
+    <lastmod>2014-08-18T09:00:00+00:00</lastmod>
+  </url>
+  
+  <url>
+    <loc>http://www.darrencoxall.com/clojure/continuing-clojure/</loc>
+    <lastmod>2014-07-24T21:59:27+01:00</lastmod>
+  </url>
+  
+  <url>
+    <loc>http://www.darrencoxall.com/clojure/starting-clojure/</loc>
+    <lastmod>2014-07-02T20:44:08+01:00</lastmod>
+  </url>
+  
+  <url>
+    <loc>http://www.darrencoxall.com/golang/cross-compiling-go-is-easy/</loc>
+    <lastmod>2013-10-22T19:17:00+00:00</lastmod>
+  </url>
+  
+  <url>
+    <loc>http://www.darrencoxall.com/ruby/everything-is-an-object/</loc>
+    <lastmod>2013-07-24T20:17:00+00:00</lastmod>
+  </url>
+  
+  <url>
+    <loc>http://www.darrencoxall.com/golang/getting-to-know-go/</loc>
+    <lastmod>2013-04-02T08:00:00+00:00</lastmod>
+  </url>
+  
+  <url>
+    <loc>http://www.darrencoxall.com/tools/boxen-and-my-experience/</loc>
+    <lastmod>2013-03-03T15:00:00+00:00</lastmod>
+  </url>
+  
+  <url>
+    <loc>http://www.darrencoxall.com/php/laravel-the-good-and-the-awesome/</loc>
+    <lastmod>2013-01-17T11:47:00+00:00</lastmod>
+  </url>
+  
+</urlset>
