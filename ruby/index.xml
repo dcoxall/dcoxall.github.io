@@ -5,16 +5,13 @@
     <link>http://www.darrencoxall.com/ruby/</link>
     <description>Recent content in Rubies on Darren Coxall</description>
     <generator>Hugo -- gohugo.io</generator>
-    
-    
-    
-    <lastBuildDate>Thu, 01 Jan 2015 10:00:00 UTC</lastBuildDate>
+    <lastBuildDate>Thu, 01 Jan 2015 10:00:00 +0000</lastBuildDate>
     <atom:link href="http://www.darrencoxall.com/ruby/index.xml" rel="self" type="application/rss+xml" />
     
     <item>
       <title>Refactoring Walkthrough</title>
       <link>http://www.darrencoxall.com/ruby/refactoring-walkthrough/</link>
-      <pubDate>Thu, 01 Jan 2015 10:00:00 UTC</pubDate>
+      <pubDate>Thu, 01 Jan 2015 10:00:00 +0000</pubDate>
       
       <guid>http://www.darrencoxall.com/ruby/refactoring-walkthrough/</guid>
       <description>&lt;p&gt;Refactoring is the process of restructuring, re-architecting and modifying
@@ -287,7 +284,7 @@ and improve some code!&lt;/p&gt;
     <item>
       <title>Learning Ruby: Everything is an Object</title>
       <link>http://www.darrencoxall.com/ruby/everything-is-an-object/</link>
-      <pubDate>Wed, 24 Jul 2013 20:17:00 UTC</pubDate>
+      <pubDate>Wed, 24 Jul 2013 20:17:00 +0000</pubDate>
       
       <guid>http://www.darrencoxall.com/ruby/everything-is-an-object/</guid>
       <description>

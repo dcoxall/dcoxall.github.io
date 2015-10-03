@@ -1,0 +1,226 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1">
+    <title>Understanding Maven &middot; Darren Coxall</title>
+    <base href="http://www.darrencoxall.com/">
+    <link href="" rel="alternate" type="application/rss+xml" title="Darren Coxall">
+    <link href="/css/coxall.css" rel="stylesheet" type="text/css">
+    <link rel="stylesheet" href="//cdnjs.cloudflare.com/ajax/libs/highlight.js/8.4/styles/tomorrow-night-eighties.min.css">
+  </head>
+  <body lang="en">
+
+    
+    <header>
+      <a href="http://www.darrencoxall.com/">
+        Home
+      </a>
+    </header>
+    
+
+
+    <main class="container">
+
+      <section class="row">
+        <article class="col-md-8 col-md-offset-2">
+          <h1>Understanding Maven</h1>
+          <div class="meta text-muted">
+            <p>
+              <time datetime="2015-10-05T09:00:00Z">
+                Mon, Oct 5, 2015
+              </time>
+            </p>
+          </div>
+          
+
+<p>With a recent change of jobs I am finding myself <em>re-learning</em> java. The last time I used the language was in University and much of that was far from professional quality with regards to unit testing and software architecture. So with that in mind I am spending some time brushing up on the necessities one of which is dependency management.</p>
+
+<p>It&rsquo;s easy enough to open up one of the high quality IDEs that are well known in the community such as Eclipse or IntelliJ, and get a dependency managed project running in no time. My problem with this is I like to know exactly what is happening, what has my IDE generated? and how can I achieve the same without ay IDE? So let&rsquo;s take a dive into Maven&hellip;</p>
+
+<h2 id="what-is-maven:7664521576a6e38bce406d23fa54df85">What is Maven</h2>
+
+<p>Maven is one of the most popular dependency resolution and management tools in the Java community. What this means <em>(initially)</em> to me is that it&rsquo;s a good choice for maintaining a set of external dependencies and ensuring our application is using specific versions that are known to work.</p>
+
+<p>Installing maven is simple so I won&rsquo;t discuss that here, but you can find the official documentation <a href="https://maven.apache.org/install.html">here</a>.</p>
+
+<p>The key file is <code>pom.xml</code> (Project Object Model) which represents your project and dependencies in XML. Much like a <code>Gemfile</code> for Ruby or <code>package.json</code> for node. So looking at the <a href="https://maven.apache.org/pom.html">reference guide</a> I&rsquo;m going to create something very basic.</p>
+
+<pre><code>&lt;project xmlns=&quot;http://maven.apache.org/POM/4.0.0&quot;
+  xmlns:xsi=&quot;http://www.w3.org/2001/XMLSchema-instance&quot;
+  xsi:schemaLocation=&quot;http://maven.apache.org/POM/4.0.0
+                      http://maven.apache.org/xsd/maven-4.0.0.xsd&quot;&gt;
+  &lt;modelVersion&gt;4.0.0&lt;/modelVersion&gt;
+
+  &lt;groupId&gt;com.darrencoxall&lt;/groupId&gt;
+  &lt;artifactId&gt;learning-maven&lt;/artifactId&gt;
+  &lt;version&gt;1.0&lt;/version&gt;
+&lt;/project&gt;
+</code></pre>
+
+<p>Here we need to ignore the <code>modelVersion</code> as 4 is the only acceptable version. The proceeding 3 attributes define the information about my own particular project.</p>
+
+<p>With that defined I decided to see what happens when I run <code>mvn clean install</code>&hellip; The answer is lots to my surprise. I haven&rsquo;t even declared any dependencies yet. The output looks as though it has downloaded some maven related plugins so let&rsquo;s have a look at what they are.</p>
+
+<ul>
+<li><code>maven-clean-plugin</code> removes build-time generated files</li>
+<li><code>maven-resources-plugin</code> copies the relevant resource files to the output directory</li>
+<li><code>maven-compiler-plugin</code> contains the compilation logic which is independent to the JDK used for maven</li>
+<li><code>maven-surefire-plugin</code> generates a report of test results</li>
+<li><code>maven-jar-plugin</code> which builds a JAR file</li>
+</ul>
+
+<p>So these plugins are providing some of the basics but presumably maven can do a lot more via plugins as the core feature set is built as plugins.</p>
+
+<p>We also have a new directory called &ldquo;target&rdquo;. This is where our build artifacts are stored so this directory would presumably be ignored from any VCS.</p>
+
+<h2 id="using-maven:7664521576a6e38bce406d23fa54df85">Using Maven</h2>
+
+<p>I&rsquo;m now going to add a very simple application&hellip;</p>
+
+<pre><code>// src/main/java/Application.java
+package learningmaven;
+
+class Application {
+  public static void main(String[] arguments) {
+    System.out.println(&quot;Hello, World!&quot;);
+  }
+}
+</code></pre>
+
+<p>Again running <code>mvn clean install</code> results in a few more things in the target directory. I&rsquo;m not particularly bothered by them though as I should now have a working JAR file right?</p>
+
+<pre><code>$ java -jar target/learning-maven-1.0.jar
+no main manifest attribute, in target/learning-maven-1.0.jar
+</code></pre>
+
+<p>So no, how is main set then? Well a bit of searching and I discovered the maven-jar-plugin can be configured to generate the relevant meta files for the jar. So my <code>pom.xml</code> will now look like the following: <em>key points are the addClasspath and mainClass</em></p>
+
+<pre><code>&lt;project xmlns=&quot;http://maven.apache.org/POM/4.0.0&quot;
+  xmlns:xsi=&quot;http://www.w3.org/2001/XMLSchema-instance&quot;
+  xsi:schemaLocation=&quot;http://maven.apache.org/POM/4.0.0
+                      http://maven.apache.org/xsd/maven-4.0.0.xsd&quot;&gt;
+  &lt;modelVersion&gt;4.0.0&lt;/modelVersion&gt;
+
+  &lt;groupId&gt;com.darrencoxall&lt;/groupId&gt;
+  &lt;artifactId&gt;learning-maven&lt;/artifactId&gt;
+  &lt;version&gt;1.0&lt;/version&gt;
+  &lt;build&gt;
+    &lt;plugins&gt;
+      &lt;plugin&gt;
+        &lt;groupId&gt;org.apache.maven.plugins&lt;/groupId&gt;
+        &lt;artifactId&gt;maven-jar-plugin&lt;/artifactId&gt;
+        &lt;version&gt;2.4&lt;/version&gt;
+        &lt;configuration&gt;
+          &lt;archive&gt;
+            &lt;manifest&gt;
+              &lt;addClasspath&gt;true&lt;/addClasspath&gt;
+              &lt;mainClass&gt;learningmaven.Application&lt;/mainClass&gt;
+            &lt;/manifest&gt;
+          &lt;/archive&gt;
+        &lt;/configuration&gt;
+      &lt;/plugin&gt;
+    &lt;/plugins&gt;
+  &lt;/build&gt;
+&lt;/project&gt;
+</code></pre>
+
+<p>Now let&rsquo;s just try this again&hellip;</p>
+
+<pre><code>$ mvn clean install
+$ java -jar target/learning-maven-1.0.jar
+Hello, World!
+</code></pre>
+
+<p>Success! We have configured maven to build our project without any IDE. So now I want to use some dependencies and see how that works.</p>
+
+<h2 id="dependencies-in-maven:7664521576a6e38bce406d23fa54df85">Dependencies in Maven</h2>
+
+<p>I&rsquo;m going to add <a href="http://www.joda.org/joda-time/">Joda-Time</a> to my project as it&rsquo;s a well respected time library.</p>
+
+<p>To do this I need to add the following into my POM.</p>
+
+<pre><code>&lt;dependencies&gt;
+  &lt;dependency&gt;
+    &lt;groupId&gt;joda-time&lt;/groupId&gt;
+    &lt;artifactId&gt;joda-time&lt;/artifactId&gt;
+    &lt;version&gt;2.8.2&lt;/version&gt;
+  &lt;/dependency&gt;
+&lt;/dependencies&gt;
+</code></pre>
+
+<p>Fast-forward a bit and I also discovered that maven won&rsquo;t automatically make dependencies available to the classpath and so we need to automate this with another plugin, maven-dependency-plugin.</p>
+
+<pre><code>&lt;plugin&gt;
+  &lt;groupId&gt;org.apache.maven.plugins&lt;/groupId&gt;
+  &lt;artifactId&gt;maven-dependency-plugin&lt;/artifactId&gt;
+  &lt;executions&gt;
+    &lt;execution&gt;
+      &lt;id&gt;copy-dependencies&lt;/id&gt;
+      &lt;phase&gt;package&lt;/phase&gt;
+      &lt;goals&gt;
+        &lt;goal&gt;copy-dependencies&lt;/goal&gt;
+      &lt;/goals&gt;
+      &lt;configuration&gt;
+        &lt;outputDirectory&gt;${project.build.directory}&lt;/outputDirectory&gt;
+        &lt;overWriteReleases&gt;false&lt;/overWriteReleases&gt;
+        &lt;overWriteSnapshots&gt;true&lt;/overWriteSnapshots&gt;
+      &lt;/configuration&gt;
+    &lt;/execution&gt;
+  &lt;/executions&gt;
+&lt;/plugin&gt;
+</code></pre>
+
+<p>With this in place dependencies are then available to our code and packaged into our jar. So let&rsquo;s use joda-time in our code.</p>
+
+<pre><code>package learningmaven;
+
+import org.joda.time.Instant;
+
+class Application {
+  public static void main(String[] arguments) {
+    Instant now = Instant.now();
+    System.out.println(now);
+  }
+}
+</code></pre>
+
+<p>Finally we can compile and build the project and see if it works.</p>
+
+<pre><code>$ mvn clean install
+$ java -jar target/learning-maven-1.0.jar
+2015-10-03T20:41:27.516Z
+</code></pre>
+
+<p>Fantastic. So in this we have learnt a bit about how we can use maven to manage dependencies as well as bundle them into our applications. It can do a hell of a lot more but understanding the basics is important, it means I have a better understanding of maven outside of the interfaces available within an IDE.</p>
+
+<p>It&rsquo;s so easy to become reliant on IDEs to create and work with Java projects but I want to make sure that the use of the tools doesn&rsquo;t obscure my understanding of the technologies. I want to be able to create small java applications from my terminal.</p>
+
+<p><em>Apologies if this is quite a simple task but being new/out-of-date to java means these simple subjects are often overlooked and shared learning is better than private learning.</em></p>
+
+        </article>
+      </section>
+
+      <footer class="row h-card">
+        <div class="avatar col-md-2 col-md-offset-2 hidden-sm">
+          <img class="u-photo img-circle img-responsive" alt="Darren Coxall" src="/img/avatar.jpeg">
+        </div>
+        <aside class="col-md-6">
+          <h4>About The Author</h4>
+          <p>
+            My name is <span class="p-name">Darren Coxall</span>. I am a software
+            engineer in <span class="p-region">London</span> working for
+            <a class="p-org" href="https://www.marksandspencer.com">Marks &amp;
+            Spencer</a>. Currently my goto language is Ruby but I enjoy experimenting
+            with many languages.
+          </p>
+        </aside>
+      </footer>
+
+    </main>
+
+    <script src="/js/highlight.pack.js"></script>
+    <script src="/js/coxall.js"></script>
+
+  </body>
+</html>
+

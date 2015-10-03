@@ -1,0 +1,186 @@
+<?xml version="1.0" encoding="utf-8" standalone="yes" ?>
+<rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom">
+  <channel>
+    <title>Javas on Darren Coxall</title>
+    <link>http://www.darrencoxall.com/java/</link>
+    <description>Recent content in Javas on Darren Coxall</description>
+    <generator>Hugo -- gohugo.io</generator>
+    <lastBuildDate>Mon, 05 Oct 2015 09:00:00 +0000</lastBuildDate>
+    <atom:link href="http://www.darrencoxall.com/java/index.xml" rel="self" type="application/rss+xml" />
+    
+    <item>
+      <title>Understanding Maven</title>
+      <link>http://www.darrencoxall.com/java/understanding-maven/</link>
+      <pubDate>Mon, 05 Oct 2015 09:00:00 +0000</pubDate>
+      
+      <guid>http://www.darrencoxall.com/java/understanding-maven/</guid>
+      <description>
+
+&lt;p&gt;With a recent change of jobs I am finding myself &lt;em&gt;re-learning&lt;/em&gt; java. The last time I used the language was in University and much of that was far from professional quality with regards to unit testing and software architecture. So with that in mind I am spending some time brushing up on the necessities one of which is dependency management.&lt;/p&gt;
+
+&lt;p&gt;It&amp;rsquo;s easy enough to open up one of the high quality IDEs that are well known in the community such as Eclipse or IntelliJ, and get a dependency managed project running in no time. My problem with this is I like to know exactly what is happening, what has my IDE generated? and how can I achieve the same without ay IDE? So let&amp;rsquo;s take a dive into Maven&amp;hellip;&lt;/p&gt;
+
+&lt;h2 id=&#34;what-is-maven:7664521576a6e38bce406d23fa54df85&#34;&gt;What is Maven&lt;/h2&gt;
+
+&lt;p&gt;Maven is one of the most popular dependency resolution and management tools in the Java community. What this means &lt;em&gt;(initially)&lt;/em&gt; to me is that it&amp;rsquo;s a good choice for maintaining a set of external dependencies and ensuring our application is using specific versions that are known to work.&lt;/p&gt;
+
+&lt;p&gt;Installing maven is simple so I won&amp;rsquo;t discuss that here, but you can find the official documentation &lt;a href=&#34;https://maven.apache.org/install.html&#34;&gt;here&lt;/a&gt;.&lt;/p&gt;
+
+&lt;p&gt;The key file is &lt;code&gt;pom.xml&lt;/code&gt; (Project Object Model) which represents your project and dependencies in XML. Much like a &lt;code&gt;Gemfile&lt;/code&gt; for Ruby or &lt;code&gt;package.json&lt;/code&gt; for node. So looking at the &lt;a href=&#34;https://maven.apache.org/pom.html&#34;&gt;reference guide&lt;/a&gt; I&amp;rsquo;m going to create something very basic.&lt;/p&gt;
+
+&lt;pre&gt;&lt;code&gt;&amp;lt;project xmlns=&amp;quot;http://maven.apache.org/POM/4.0.0&amp;quot;
+  xmlns:xsi=&amp;quot;http://www.w3.org/2001/XMLSchema-instance&amp;quot;
+  xsi:schemaLocation=&amp;quot;http://maven.apache.org/POM/4.0.0
+                      http://maven.apache.org/xsd/maven-4.0.0.xsd&amp;quot;&amp;gt;
+  &amp;lt;modelVersion&amp;gt;4.0.0&amp;lt;/modelVersion&amp;gt;
+
+  &amp;lt;groupId&amp;gt;com.darrencoxall&amp;lt;/groupId&amp;gt;
+  &amp;lt;artifactId&amp;gt;learning-maven&amp;lt;/artifactId&amp;gt;
+  &amp;lt;version&amp;gt;1.0&amp;lt;/version&amp;gt;
+&amp;lt;/project&amp;gt;
+&lt;/code&gt;&lt;/pre&gt;
+
+&lt;p&gt;Here we need to ignore the &lt;code&gt;modelVersion&lt;/code&gt; as 4 is the only acceptable version. The proceeding 3 attributes define the information about my own particular project.&lt;/p&gt;
+
+&lt;p&gt;With that defined I decided to see what happens when I run &lt;code&gt;mvn clean install&lt;/code&gt;&amp;hellip; The answer is lots to my surprise. I haven&amp;rsquo;t even declared any dependencies yet. The output looks as though it has downloaded some maven related plugins so let&amp;rsquo;s have a look at what they are.&lt;/p&gt;
+
+&lt;ul&gt;
+&lt;li&gt;&lt;code&gt;maven-clean-plugin&lt;/code&gt; removes build-time generated files&lt;/li&gt;
+&lt;li&gt;&lt;code&gt;maven-resources-plugin&lt;/code&gt; copies the relevant resource files to the output directory&lt;/li&gt;
+&lt;li&gt;&lt;code&gt;maven-compiler-plugin&lt;/code&gt; contains the compilation logic which is independent to the JDK used for maven&lt;/li&gt;
+&lt;li&gt;&lt;code&gt;maven-surefire-plugin&lt;/code&gt; generates a report of test results&lt;/li&gt;
+&lt;li&gt;&lt;code&gt;maven-jar-plugin&lt;/code&gt; which builds a JAR file&lt;/li&gt;
+&lt;/ul&gt;
+
+&lt;p&gt;So these plugins are providing some of the basics but presumably maven can do a lot more via plugins as the core feature set is built as plugins.&lt;/p&gt;
+
+&lt;p&gt;We also have a new directory called &amp;ldquo;target&amp;rdquo;. This is where our build artifacts are stored so this directory would presumably be ignored from any VCS.&lt;/p&gt;
+
+&lt;h2 id=&#34;using-maven:7664521576a6e38bce406d23fa54df85&#34;&gt;Using Maven&lt;/h2&gt;
+
+&lt;p&gt;I&amp;rsquo;m now going to add a very simple application&amp;hellip;&lt;/p&gt;
+
+&lt;pre&gt;&lt;code&gt;// src/main/java/Application.java
+package learningmaven;
+
+class Application {
+  public static void main(String[] arguments) {
+    System.out.println(&amp;quot;Hello, World!&amp;quot;);
+  }
+}
+&lt;/code&gt;&lt;/pre&gt;
+
+&lt;p&gt;Again running &lt;code&gt;mvn clean install&lt;/code&gt; results in a few more things in the target directory. I&amp;rsquo;m not particularly bothered by them though as I should now have a working JAR file right?&lt;/p&gt;
+
+&lt;pre&gt;&lt;code&gt;$ java -jar target/learning-maven-1.0.jar
+no main manifest attribute, in target/learning-maven-1.0.jar
+&lt;/code&gt;&lt;/pre&gt;
+
+&lt;p&gt;So no, how is main set then? Well a bit of searching and I discovered the maven-jar-plugin can be configured to generate the relevant meta files for the jar. So my &lt;code&gt;pom.xml&lt;/code&gt; will now look like the following: &lt;em&gt;key points are the addClasspath and mainClass&lt;/em&gt;&lt;/p&gt;
+
+&lt;pre&gt;&lt;code&gt;&amp;lt;project xmlns=&amp;quot;http://maven.apache.org/POM/4.0.0&amp;quot;
+  xmlns:xsi=&amp;quot;http://www.w3.org/2001/XMLSchema-instance&amp;quot;
+  xsi:schemaLocation=&amp;quot;http://maven.apache.org/POM/4.0.0
+                      http://maven.apache.org/xsd/maven-4.0.0.xsd&amp;quot;&amp;gt;
+  &amp;lt;modelVersion&amp;gt;4.0.0&amp;lt;/modelVersion&amp;gt;
+
+  &amp;lt;groupId&amp;gt;com.darrencoxall&amp;lt;/groupId&amp;gt;
+  &amp;lt;artifactId&amp;gt;learning-maven&amp;lt;/artifactId&amp;gt;
+  &amp;lt;version&amp;gt;1.0&amp;lt;/version&amp;gt;
+  &amp;lt;build&amp;gt;
+    &amp;lt;plugins&amp;gt;
+      &amp;lt;plugin&amp;gt;
+        &amp;lt;groupId&amp;gt;org.apache.maven.plugins&amp;lt;/groupId&amp;gt;
+        &amp;lt;artifactId&amp;gt;maven-jar-plugin&amp;lt;/artifactId&amp;gt;
+        &amp;lt;version&amp;gt;2.4&amp;lt;/version&amp;gt;
+        &amp;lt;configuration&amp;gt;
+          &amp;lt;archive&amp;gt;
+            &amp;lt;manifest&amp;gt;
+              &amp;lt;addClasspath&amp;gt;true&amp;lt;/addClasspath&amp;gt;
+              &amp;lt;mainClass&amp;gt;learningmaven.Application&amp;lt;/mainClass&amp;gt;
+            &amp;lt;/manifest&amp;gt;
+          &amp;lt;/archive&amp;gt;
+        &amp;lt;/configuration&amp;gt;
+      &amp;lt;/plugin&amp;gt;
+    &amp;lt;/plugins&amp;gt;
+  &amp;lt;/build&amp;gt;
+&amp;lt;/project&amp;gt;
+&lt;/code&gt;&lt;/pre&gt;
+
+&lt;p&gt;Now let&amp;rsquo;s just try this again&amp;hellip;&lt;/p&gt;
+
+&lt;pre&gt;&lt;code&gt;$ mvn clean install
+$ java -jar target/learning-maven-1.0.jar
+Hello, World!
+&lt;/code&gt;&lt;/pre&gt;
+
+&lt;p&gt;Success! We have configured maven to build our project without any IDE. So now I want to use some dependencies and see how that works.&lt;/p&gt;
+
+&lt;h2 id=&#34;dependencies-in-maven:7664521576a6e38bce406d23fa54df85&#34;&gt;Dependencies in Maven&lt;/h2&gt;
+
+&lt;p&gt;I&amp;rsquo;m going to add &lt;a href=&#34;http://www.joda.org/joda-time/&#34;&gt;Joda-Time&lt;/a&gt; to my project as it&amp;rsquo;s a well respected time library.&lt;/p&gt;
+
+&lt;p&gt;To do this I need to add the following into my POM.&lt;/p&gt;
+
+&lt;pre&gt;&lt;code&gt;&amp;lt;dependencies&amp;gt;
+  &amp;lt;dependency&amp;gt;
+    &amp;lt;groupId&amp;gt;joda-time&amp;lt;/groupId&amp;gt;
+    &amp;lt;artifactId&amp;gt;joda-time&amp;lt;/artifactId&amp;gt;
+    &amp;lt;version&amp;gt;2.8.2&amp;lt;/version&amp;gt;
+  &amp;lt;/dependency&amp;gt;
+&amp;lt;/dependencies&amp;gt;
+&lt;/code&gt;&lt;/pre&gt;
+
+&lt;p&gt;Fast-forward a bit and I also discovered that maven won&amp;rsquo;t automatically make dependencies available to the classpath and so we need to automate this with another plugin, maven-dependency-plugin.&lt;/p&gt;
+
+&lt;pre&gt;&lt;code&gt;&amp;lt;plugin&amp;gt;
+  &amp;lt;groupId&amp;gt;org.apache.maven.plugins&amp;lt;/groupId&amp;gt;
+  &amp;lt;artifactId&amp;gt;maven-dependency-plugin&amp;lt;/artifactId&amp;gt;
+  &amp;lt;executions&amp;gt;
+    &amp;lt;execution&amp;gt;
+      &amp;lt;id&amp;gt;copy-dependencies&amp;lt;/id&amp;gt;
+      &amp;lt;phase&amp;gt;package&amp;lt;/phase&amp;gt;
+      &amp;lt;goals&amp;gt;
+        &amp;lt;goal&amp;gt;copy-dependencies&amp;lt;/goal&amp;gt;
+      &amp;lt;/goals&amp;gt;
+      &amp;lt;configuration&amp;gt;
+        &amp;lt;outputDirectory&amp;gt;${project.build.directory}&amp;lt;/outputDirectory&amp;gt;
+        &amp;lt;overWriteReleases&amp;gt;false&amp;lt;/overWriteReleases&amp;gt;
+        &amp;lt;overWriteSnapshots&amp;gt;true&amp;lt;/overWriteSnapshots&amp;gt;
+      &amp;lt;/configuration&amp;gt;
+    &amp;lt;/execution&amp;gt;
+  &amp;lt;/executions&amp;gt;
+&amp;lt;/plugin&amp;gt;
+&lt;/code&gt;&lt;/pre&gt;
+
+&lt;p&gt;With this in place dependencies are then available to our code and packaged into our jar. So let&amp;rsquo;s use joda-time in our code.&lt;/p&gt;
+
+&lt;pre&gt;&lt;code&gt;package learningmaven;
+
+import org.joda.time.Instant;
+
+class Application {
+  public static void main(String[] arguments) {
+    Instant now = Instant.now();
+    System.out.println(now);
+  }
+}
+&lt;/code&gt;&lt;/pre&gt;
+
+&lt;p&gt;Finally we can compile and build the project and see if it works.&lt;/p&gt;
+
+&lt;pre&gt;&lt;code&gt;$ mvn clean install
+$ java -jar target/learning-maven-1.0.jar
+2015-10-03T20:41:27.516Z
+&lt;/code&gt;&lt;/pre&gt;
+
+&lt;p&gt;Fantastic. So in this we have learnt a bit about how we can use maven to manage dependencies as well as bundle them into our applications. It can do a hell of a lot more but understanding the basics is important, it means I have a better understanding of maven outside of the interfaces available within an IDE.&lt;/p&gt;
+
+&lt;p&gt;It&amp;rsquo;s so easy to become reliant on IDEs to create and work with Java projects but I want to make sure that the use of the tools doesn&amp;rsquo;t obscure my understanding of the technologies. I want to be able to create small java applications from my terminal.&lt;/p&gt;
+
+&lt;p&gt;&lt;em&gt;Apologies if this is quite a simple task but being new/out-of-date to java means these simple subjects are often overlooked and shared learning is better than private learning.&lt;/em&gt;&lt;/p&gt;
+</description>
+    </item>
+    
+  </channel>
+</rss>

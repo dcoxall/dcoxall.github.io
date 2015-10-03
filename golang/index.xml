@@ -5,16 +5,13 @@
     <link>http://www.darrencoxall.com/golang/</link>
     <description>Recent content in Golangs on Darren Coxall</description>
     <generator>Hugo -- gohugo.io</generator>
-    
-    
-    
-    <lastBuildDate>Mon, 18 Aug 2014 09:00:00 UTC</lastBuildDate>
+    <lastBuildDate>Mon, 18 Aug 2014 09:00:00 +0000</lastBuildDate>
     <atom:link href="http://www.darrencoxall.com/golang/index.xml" rel="self" type="application/rss+xml" />
     
     <item>
       <title>Executing Commands in Go</title>
       <link>http://www.darrencoxall.com/golang/executing-commands-in-go/</link>
-      <pubDate>Mon, 18 Aug 2014 09:00:00 UTC</pubDate>
+      <pubDate>Mon, 18 Aug 2014 09:00:00 +0000</pubDate>
       
       <guid>http://www.darrencoxall.com/golang/executing-commands-in-go/</guid>
       <description>
@@ -184,7 +181,7 @@ printOutput(
     <item>
       <title>Cross Compiling Go Is Easy</title>
       <link>http://www.darrencoxall.com/golang/cross-compiling-go-is-easy/</link>
-      <pubDate>Tue, 22 Oct 2013 19:17:00 UTC</pubDate>
+      <pubDate>Tue, 22 Oct 2013 19:17:00 +0000</pubDate>
       
       <guid>http://www.darrencoxall.com/golang/cross-compiling-go-is-easy/</guid>
       <description>&lt;p&gt;I have found myself spending ever increasing amounts of time developing in Go (golang). Not because I need to, but because it&amp;rsquo;s a refreshing change from my usual. One thing I was interested in however was simply getting my code to work &lt;em&gt;almost&lt;/em&gt; anywhere which is harder with Go seeing as it needs a platform to target.&lt;/p&gt;
@@ -226,7 +223,7 @@ done
     <item>
       <title>Getting to know Go (Golang)</title>
       <link>http://www.darrencoxall.com/golang/getting-to-know-go/</link>
-      <pubDate>Tue, 02 Apr 2013 08:00:00 UTC</pubDate>
+      <pubDate>Tue, 02 Apr 2013 08:00:00 +0000</pubDate>
       
       <guid>http://www.darrencoxall.com/golang/getting-to-know-go/</guid>
       <description>
